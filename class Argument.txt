@@ -1,0 +1,98 @@
+class Argument:
+    def __init__(self, arg_id, text, weight=1):
+        self.arg_id = arg_id
+        self.text = text
+        self.weight = weight
+        self.status = "UNDECIDED"  # Can be IN, OUT, or UNDECIDED
+        self.attackers = []        # Arguments attacking this one
+        self.undercutters = []     # Arguments attacking the arrows pointing to this one
+
+    def __repr__(self):
+        return f"[{self.status}] {self.arg_id}: {self.text} (Weight: {self.weight})"
+
+
+class LogicAdvocateTutor:
+    def __init__(self):
+        self.arguments = {}
+
+    def add_argument(self, arg_id, text, weight=1):
+        self.arguments[arg_id] = Argument(arg_id, text, weight)
+
+    def add_direct_attack(self, attacker_id, target_id):
+        """Standard Rebuttal or Undermining attack."""
+        attacker = self.arguments[attacker_id]
+        target = self.arguments[target_id]
+        
+        # Priority Check: Attack only lands if Attacker is >= Target
+        if attacker.weight >= target.weight:
+            target.attackers.append(attacker)
+            print(f"Attack Registered: {attacker_id} successfully attacks {target_id}.")
+        else:
+            print(f"Attack Failed: {target_id}'s armor is too strong for {attacker_id}.")
+
+    def add_undercut_attack(self, undercutter_id, target_id):
+        """Attacks the logic bridge. Ignores weight."""
+        undercutter = self.arguments[undercutter_id]
+        target = self.arguments[target_id]
+        target.undercutters.append(undercutter)
+        print(f"Undercut Registered: {undercutter_id} breaks the logic bridge to {target_id}.")
+
+    def evaluate_semantics(self):
+        """Determines who wins based on the Grounded Semantic approach."""
+        print("\n--- Running Evaluation Engine ---")
+        changed = True
+        
+        # Reset all to UNDECIDED for a fresh run
+        for arg in self.arguments.values():
+            arg.status = "UNDECIDED"
+
+        while changed:
+            changed = False
+            for arg in self.arguments.values():
+                if arg.status != "UNDECIDED":
+                    continue
+
+                # Rule 1: Are all active attackers defeated?
+                # An attacker is "active" if it hasn't been undercut AND isn't OUT
+                active_attackers = [
+                    atk for atk in arg.attackers 
+                    if atk.status != "OUT" and not any(uc.status == "IN" for uc in arg.undercutters)
+                ]
+
+                # If no active attackers, this argument wins (IN)
+                if not active_attackers:
+                    arg.status = "IN"
+                    changed = True
+                
+                # Rule 2: Is there at least one IN attacker that hasn't been undercut?
+                elif any(atk.status == "IN" for atk in active_attackers):
+                    arg.status = "OUT"
+                    changed = True
+
+    def print_results(self):
+        print("\n--- Final Debate Results ---")
+        for arg in self.arguments.values():
+            print(arg)
+
+
+# ==========================================
+# Running a Scenario in the Tutor
+# ==========================================
+tutor = LogicAdvocateTutor()
+
+# 1. The Setup
+tutor.add_argument("Arg_A", "User: I will drive through the red light.", weight=5)
+tutor.add_argument("Arg_B", "Tutor: Running red lights violates traffic laws.", weight=8)
+tutor.add_argument("Arg_C", "User: I have my emergency medical sirens on.", weight=10)
+
+print("--- Building the Graph ---")
+# 2. The Attacks
+# Tutor attacks the user's plan (Rebuttal)
+tutor.add_direct_attack("Arg_B", "Arg_A") 
+
+# User defends by attacking the rule's applicability (Undercut / Hall Pass)
+tutor.add_undercut_attack("Arg_C", "Arg_A") 
+
+# 3. Calculate the Winner
+tutor.evaluate_semantics()
+tutor.print_results()
