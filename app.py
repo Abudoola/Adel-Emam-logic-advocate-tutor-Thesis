@@ -10,7 +10,7 @@ import time
 
 from logic_engine import AcademicLogicEngine, PYARG_INSTALLED
 from database import save_db, load_db
-from ai_agent import generate_counter_argument
+from ai_agent import generate_counter_argument, transcribe_audio
 
 st.set_page_config(page_title="Logic Advocate Arena", layout="wide")
 
@@ -192,7 +192,23 @@ else:
     with st.expander("📎 Attach Evidence (Image/Video)"):
         uploaded_file = st.file_uploader("Upload visual proof", type=["png", "jpg", "jpeg", "mp4"])
 
-    text = st.chat_input("Enter your argument...")
+    if "audio_key" not in st.session_state:
+        st.session_state.audio_key = 0
+
+    audio_val = st.audio_input("🎙️ Speak your argument", key=f"audio_{st.session_state.audio_key}")
+    text_val = st.chat_input("...or type your argument here")
+
+    text = None
+    if text_val:
+        text = text_val
+    elif audio_val:
+        with st.spinner("Transcribing your voice..."):
+            audio_path = os.path.join("uploads", f"temp_audio_{int(time.time())}.wav")
+            with open(audio_path, "wb") as f:
+                f.write(audio_val.getbuffer())
+            text = transcribe_audio(audio_path)
+            
+        st.session_state.audio_key += 1
 
     if text:
         # --- 1. PROCESS THE HUMAN'S TURN (SIDE A) ---
