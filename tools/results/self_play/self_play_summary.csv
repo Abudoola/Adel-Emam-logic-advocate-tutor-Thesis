@@ -1,0 +1,4 @@
+topic,winner,root_score,turns,side_a_weight,side_b_weight,fact_count,logic_count,ethics_count,emotion_count
+Schools should ban smartphones in classrooms,Side A,0.617,4,24,22,0,3,1,0
+Universal basic income should be tried nationally,Side A,0.634,4,25,22,0,3,1,0
+Animal testing should be banned,Side A,0.598,4,23,22,0,3,1,0

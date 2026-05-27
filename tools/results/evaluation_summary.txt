@@ -1,0 +1,40 @@
+LOGIC ADVOCATE TUTOR --- EVALUATION SUMMARY
+============================================================
+
+Overall agreement with human-expert labels: 51/60 (85.0%)
+
+Breakdown by topology:
+------------------------------------------------------------
+  Linear chains      : 12/15  ( 80.0%)
+    Disagreements: LIN-04, LIN-10, LIN-14
+  Star attacks       : 14/15  ( 93.3%)
+    Disagreements: STR-13
+  Bipolar mixed      : 12/15  ( 80.0%)
+    Disagreements: BIP-08, BIP-10, BIP-12
+  Long mixed-shape   : 13/15  ( 86.7%)
+    Disagreements: LNG-09, LNG-13
+
+Average score of root arguments labelled IN:    0.832
+Average score of root arguments labelled OUT:   0.449
+Average iterations until score vector stable:   2.5
+
+Disagreement detail:
+------------------------------------------------------------
+  [LIN-04] Four-node alternating: expected OUT, engine said IN (score=0.508)
+     Reasoning: Grounded: a4 IN, a3 OUT, a2 IN, a1 OUT.
+  [LIN-10] Lightweight reply to heavy attacker: expected IN, engine said OUT (score=0.260)
+     Reasoning: Even a weak defender succeeds under attack-only chain semantics.
+  [LIN-14] Eight-node chain even: expected OUT, engine said IN (score=0.653)
+     Reasoning: Even-depth chain: root defeated.
+  [STR-13] All Emotion attackers vs Fact root: expected IN, engine said OUT (score=0.429)
+     Reasoning: Three Emotion attackers heavily scaled down by mu=0.8/1.2.
+  [BIP-08] Emotion support boost: expected OUT, engine said IN (score=0.833)
+     Reasoning: Emotion support scaled down by mu=0.8/1.0 fails to defend.
+  [BIP-10] Bipolar with cycle-like: expected OUT, engine said IN (score=0.955)
+     Reasoning: Supported attacker wins, plus support to root insufficient.
+  [BIP-12] Attack the supporter: expected OUT, engine said IN (score=1.000)
+     Reasoning: Supporter weakened, root left undefended.
+  [LNG-09] Nuclear power (11 nodes): expected IN, engine said OUT (score=0.461)
+     Reasoning: All four attackers on a1 have surviving counter-attacks.
+  [LNG-13] Open borders (12 nodes): expected OUT, engine said IN (score=0.743)
+     Reasoning: a12 survives all-Logic counter, plus high attack count.

@@ -1,0 +1,28 @@
+# Streamlit official theming.
+# See https://docs.streamlit.io/library/advanced-features/theming
+#
+# Discord-inspired dark palette. Uses only Streamlit's supported
+# theme API, no custom CSS injection here, so it cannot break the
+# composer, buttons, dropdowns, or any other native widget.
+
+[theme]
+# Dark base
+base = "dark"
+
+# Brand accent — blurple. Used for primary buttons, selected radio,
+# focus rings, and other accents Streamlit chooses to highlight.
+primaryColor = "#5865F2"
+
+# Main app surface (the area behind the chat).
+backgroundColor = "#1E1F22"
+
+# Sidebar + widget surfaces (slightly lighter than backgroundColor
+# so widgets feel like raised cards).
+secondaryBackgroundColor = "#2B2D31"
+
+# Body text. Light but not pure white, easier on the eyes.
+textColor = "#DBDEE1"
+
+# Sans-serif font. Streamlit will pick a system stack that looks
+# clean on every OS.
+font = "sans serif"

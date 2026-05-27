@@ -1,0 +1,17 @@
+# Default topics file. One topic per line. Lines starting with # are
+# comments. Use this with: python -m tools.run_self_play --batch tools/topics.txt
+Schools should ban smartphones in classrooms
+Universal basic income should be tried nationally
+Animal testing for medical research should be banned
+Nuclear power is essential to fighting climate change
+Crypto currencies will replace traditional banking
+Free public transit benefits cities more than it costs
+All drugs should be decriminalised
+Standardised testing in schools should be abolished
+Mass surveillance prevents terrorism
+Big tech companies should be broken up
+Voting should be mandatory in a democracy
+Vegetarianism is the ethical default
+Open borders increase economic growth
+Working from home is more productive than the office
+AI-generated art is real art

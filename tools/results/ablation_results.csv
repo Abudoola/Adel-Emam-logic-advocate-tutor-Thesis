@@ -1,0 +1,61 @@
+id,name,topology,expected,FULL_status,FULL_score,NO_BIPOLAR_status,NO_BIPOLAR_score,NO_VALUE_TAGS_status,NO_VALUE_TAGS_score,NO_WEIGHTS_status,NO_WEIGHTS_score,NO_GRADUAL_status,NO_GRADUAL_score
+LIN-01,Plain unattacked claim,LIN,IN,IN,1.0,IN,1.0,IN,1.0,IN,1.0,IN,1.0
+LIN-02,Single attack on root,LIN,OUT,OUT,0.423,OUT,0.423,OUT,0.444,OUT,0.478,OUT,0.0
+LIN-03,Three-node chain,LIN,IN,IN,0.563,IN,0.563,IN,0.584,IN,0.647,IN,1.0
+LIN-04,Four-node alternating,LIN,OUT,IN,0.508,IN,0.508,IN,0.562,IN,0.545,OUT,0.0
+LIN-05,Five-node deep chain,LIN,IN,IN,0.564,IN,0.564,IN,0.592,IN,0.598,IN,1.0
+LIN-06,Heavy attacker weight asymmetry,LIN,OUT,OUT,0.172,OUT,0.172,OUT,0.185,OUT,0.478,OUT,0.0
+LIN-07,Heavy defender saves claim,LIN,IN,IN,0.779,IN,0.779,IN,0.793,IN,0.647,IN,1.0
+LIN-08,Six-node chain even depth,LIN,OUT,OUT,0.492,OUT,0.492,IN,0.509,IN,0.599,OUT,0.0
+LIN-09,Seven-node chain odd depth,LIN,IN,IN,0.647,IN,0.647,IN,0.664,IN,0.601,IN,1.0
+LIN-10,Lightweight reply to heavy attacker,LIN,IN,OUT,0.26,OUT,0.26,OUT,0.28,IN,0.637,IN,1.0
+LIN-11,Single Emotion vs Fact root,LIN,IN,IN,0.692,IN,0.692,IN,0.6,IN,0.6,OUT,0.0
+LIN-12,Fact attacks Emotion root,LIN,OUT,OUT,0.323,OUT,0.323,OUT,0.417,OUT,0.4,OUT,0.0
+LIN-13,Light Fact defends against Emotion,LIN,IN,IN,0.617,IN,0.617,IN,0.505,IN,0.775,IN,1.0
+LIN-14,Eight-node chain even,LIN,OUT,IN,0.653,IN,0.653,IN,0.684,IN,0.584,OUT,0.0
+LIN-15,Edge case zero weight attackers,LIN,IN,IN,0.954,IN,0.954,IN,0.938,IN,0.579,OUT,0.0
+STR-01,Two attackers on root,STR,OUT,OUT,0.336,OUT,0.336,OUT,0.357,OUT,0.312,OUT,0.0
+STR-02,"Three attackers, varied values",STR,OUT,OUT,0.359,OUT,0.359,OUT,0.343,OUT,0.268,OUT,0.0
+STR-03,Single Emotion attacker only,STR,IN,IN,0.692,IN,0.692,IN,0.6,IN,0.6,OUT,0.0
+STR-04,Star with heavy Fact attackers,STR,OUT,OUT,0.289,OUT,0.289,OUT,0.308,OUT,0.314,OUT,0.0
+STR-05,"Symmetric weights, mixed values",STR,OUT,OUT,0.303,OUT,0.303,OUT,0.333,OUT,0.303,OUT,0.0
+STR-06,Star with one weak attacker,STR,IN,IN,0.908,IN,0.908,IN,0.9,IN,0.522,OUT,0.0
+STR-07,Four attackers all Logic,STR,OUT,OUT,0.25,OUT,0.25,OUT,0.25,OUT,0.2,OUT,0.0
+STR-08,Star with counter-attack on one,STR,OUT,OUT,0.427,OUT,0.427,OUT,0.435,OUT,0.392,OUT,0.0
+STR-09,All attackers defeated,STR,IN,IN,0.582,IN,0.582,IN,0.57,IN,0.511,IN,1.0
+STR-10,Three medium attackers,STR,OUT,OUT,0.289,OUT,0.289,OUT,0.276,OUT,0.262,OUT,0.0
+STR-11,Heavy root vs many lightweight,STR,IN,IN,0.761,IN,0.761,IN,0.758,OUT,0.255,OUT,0.0
+STR-12,Star with Ethics root,STR,OUT,OUT,0.347,OUT,0.347,OUT,0.37,OUT,0.312,OUT,0.0
+STR-13,All Emotion attackers vs Fact root,STR,IN,OUT,0.429,OUT,0.429,OUT,0.333,OUT,0.333,OUT,0.0
+STR-14,Two-step star,STR,OUT,OUT,0.414,OUT,0.414,OUT,0.433,OUT,0.381,OUT,0.0
+STR-15,Defended on one side,STR,IN,IN,0.704,IN,0.704,IN,0.714,IN,0.655,IN,1.0
+BIP-01,"One attack, one support",BIP,IN,IN,1.0,IN,0.556,IN,1.0,IN,1.0,OUT,0.0
+BIP-02,Support tilts a close call,BIP,IN,IN,0.896,OUT,0.478,IN,0.9,IN,1.0,OUT,0.0
+BIP-03,Heavy attack overwhelms light support,BIP,OUT,OUT,0.421,OUT,0.289,IN,0.5,IN,0.826,OUT,0.0
+BIP-04,Support chain,BIP,IN,IN,1.0,IN,1.0,IN,1.0,IN,1.0,IN,1.0
+BIP-05,Two supports vs two attacks,BIP,IN,IN,1.0,OUT,0.316,IN,1.0,IN,0.971,OUT,0.0
+BIP-06,Support a defender,BIP,IN,IN,0.699,IN,0.699,IN,0.726,IN,0.637,IN,1.0
+BIP-07,Counter via support,BIP,IN,IN,1.0,OUT,0.481,IN,1.0,IN,1.0,OUT,0.0
+BIP-08,Emotion support boost,BIP,OUT,IN,0.833,IN,0.5,IN,1.0,IN,0.818,OUT,0.0
+BIP-09,Fact support boost,BIP,IN,IN,1.0,OUT,0.452,IN,1.0,IN,1.0,OUT,0.0
+BIP-10,Bipolar with cycle-like,BIP,OUT,IN,0.955,IN,0.503,IN,1.0,IN,0.952,OUT,0.0
+BIP-11,Double support same target,BIP,IN,IN,1.0,IN,0.505,IN,1.0,IN,1.0,OUT,0.0
+BIP-12,Attack the supporter,BIP,OUT,IN,1.0,IN,1.0,IN,1.0,IN,1.0,IN,1.0
+BIP-13,Triple support stack,BIP,IN,IN,1.0,OUT,0.481,IN,1.0,IN,1.0,OUT,0.0
+BIP-14,Heavy Fact support saves Logic root,BIP,IN,IN,1.0,OUT,0.433,IN,1.0,IN,1.0,OUT,0.0
+BIP-15,Bipolar with all Emotion,BIP,IN,IN,1.0,IN,0.5,IN,1.0,IN,1.0,OUT,0.0
+LNG-01,Climate debate (12 nodes),LNG,IN,IN,1.0,OUT,0.228,IN,1.0,IN,1.0,OUT,0.0
+LNG-02,Tech regulation (10 nodes),LNG,IN,IN,1.0,OUT,0.321,IN,1.0,IN,1.0,OUT,0.0
+LNG-03,Education policy (11 nodes),LNG,IN,IN,1.0,OUT,0.4,IN,1.0,IN,1.0,IN,1.0
+LNG-04,Vegetarian ethics (10 nodes),LNG,IN,IN,1.0,OUT,0.387,IN,1.0,IN,1.0,IN,1.0
+LNG-05,Crypto debate (10 nodes),LNG,OUT,OUT,0.301,OUT,0.163,OUT,0.338,OUT,0.398,OUT,0.0
+LNG-06,Privacy vs security (12 nodes),LNG,OUT,OUT,0.201,OUT,0.11,OUT,0.196,OUT,0.228,OUT,0.0
+LNG-07,AI in art (10 nodes),LNG,OUT,OUT,0.245,OUT,0.245,OUT,0.26,OUT,0.258,OUT,0.0
+LNG-08,Space exploration (10 nodes),LNG,OUT,OUT,0.492,OUT,0.247,OUT,0.493,IN,0.571,OUT,0.0
+LNG-09,Nuclear power (11 nodes),LNG,IN,OUT,0.461,OUT,0.322,OUT,0.463,OUT,0.497,IN,1.0
+LNG-10,Public transit (10 nodes),LNG,IN,IN,1.0,OUT,0.36,IN,1.0,IN,1.0,OUT,0.0
+LNG-11,Universal basic income (12 nodes),LNG,IN,IN,1.0,OUT,0.338,IN,1.0,IN,1.0,IN,1.0
+LNG-12,Drug decriminalisation (10 nodes),LNG,IN,IN,1.0,OUT,0.342,IN,0.896,IN,1.0,OUT,0.0
+LNG-13,Open borders (12 nodes),LNG,OUT,IN,0.743,OUT,0.208,IN,0.743,IN,0.751,OUT,0.0
+LNG-14,Animal testing (10 nodes),LNG,IN,IN,1.0,OUT,0.414,IN,1.0,IN,1.0,IN,1.0
+LNG-15,Tech monopolies (11 nodes),LNG,IN,IN,0.754,OUT,0.343,IN,0.729,IN,0.687,IN,1.0

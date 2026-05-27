@@ -1,0 +1,23 @@
+Topic: Universal basic income should be tried nationally
+Turns: 4
+Winner: Side A
+Root score: 0.634
+Side A surviving weight: 25
+Side B surviving weight: 22
+Value-tag counts: {'Ethics': 1, 'Logic': 3}
+Convergence iterations: 4
+
+Full transcript:
+============================================================
+[Msg_1] Side A (Ethics, w=14)
+    (DRY-RUN opening) Universal basic income should be tried nationally
+
+[Msg_2] Side B (Logic, w=11) -> Msg_1
+    (DRY-RUN Side B reply turn 2)
+
+[Msg_3] Side A (Logic, w=11) -> Msg_2
+    (DRY-RUN Side A reply turn 3)
+
+[Msg_4] Side B (Logic, w=11) -> Msg_3
+    (DRY-RUN Side B reply turn 4)
+

@@ -1,0 +1,15 @@
+# Runtime deps
+streamlit>=1.32
+streamlit-autorefresh>=1.0.1
+groq>=0.11
+graphviz>=0.20
+qrcode[pil]>=7.4
+pyngrok>=7.0
+Pillow>=10
+
+# Evaluation tools (tools/ folder)
+pyspellchecker>=0.7
+openpyxl>=3.1
+
+# Testing
+pytest>=7

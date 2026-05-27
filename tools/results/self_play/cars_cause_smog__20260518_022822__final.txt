@@ -1,0 +1,29 @@
+Topic: Cars cause smog
+Turns: 6
+Winner: Side A
+Root score: 0.593
+Side A surviving weight: 32
+Side B surviving weight: 33
+Value-tag counts: {'Logic': 6}
+Convergence iterations: 6
+
+Full transcript:
+============================================================
+[Msg_1] Side A (Logic, w=10)
+    (DRY-RUN opening) Cars cause smog
+
+[Msg_2] Side B (Logic, w=11) -> Msg_1
+    (DRY-RUN Side B reply turn 2)
+
+[Msg_3] Side A (Logic, w=11) -> Msg_2
+    (DRY-RUN Side A reply turn 3)
+
+[Msg_4] Side B (Logic, w=11) -> Msg_3
+    (DRY-RUN Side B reply turn 4)
+
+[Msg_5] Side A (Logic, w=11) -> Msg_4
+    (DRY-RUN Side A reply turn 5)
+
+[Msg_6] Side B (Logic, w=11) -> Msg_5
+    (DRY-RUN Side B reply turn 6)
+

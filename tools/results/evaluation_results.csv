@@ -1,0 +1,61 @@
+id,name,topology,n_args,n_attacks,n_supports,expected,engine,score,agreement,iters,reasoning
+LIN-01,Plain unattacked claim,LIN,1,0,0,IN,IN,1.0,Y,1,"No attackers, root survives by default."
+LIN-02,Single attack on root,LIN,2,1,0,OUT,OUT,0.423,Y,2,"Classical Dung: a2 is undefeated, defeats a1."
+LIN-03,Three-node chain,LIN,3,2,0,IN,IN,0.563,Y,3,a3 defeats a2; a1 has no surviving attacker.
+LIN-04,Four-node alternating,LIN,4,3,0,OUT,IN,0.508,N,4,"Grounded: a4 IN, a3 OUT, a2 IN, a1 OUT."
+LIN-05,Five-node deep chain,LIN,5,4,0,IN,IN,0.564,Y,5,"Grounded: a5 IN, a4 OUT, a3 IN, a2 OUT, a1 IN."
+LIN-06,Heavy attacker weight asymmetry,LIN,2,1,0,OUT,OUT,0.172,Y,2,Heavy fact-based attacker easily defeats lightweight claim.
+LIN-07,Heavy defender saves claim,LIN,3,2,0,IN,IN,0.779,Y,3,"a3 defeats a2 cleanly, a1 survives."
+LIN-08,Six-node chain even depth,LIN,6,5,0,OUT,OUT,0.492,Y,6,Grounded alternates: even chain ends with root defeated.
+LIN-09,Seven-node chain odd depth,LIN,7,6,0,IN,IN,0.647,Y,7,Odd-depth grounded chain: root survives.
+LIN-10,Lightweight reply to heavy attacker,LIN,3,2,0,IN,OUT,0.26,N,3,Even a weak defender succeeds under attack-only chain semantics.
+LIN-11,Single Emotion vs Fact root,LIN,2,1,0,IN,IN,0.692,Y,2,Emotion attacker scaled by mu=0.8/1.2 is too weak.
+LIN-12,Fact attacks Emotion root,LIN,2,1,0,OUT,OUT,0.323,Y,2,Fact attacker scaled by mu=1.2/0.8 hits hard.
+LIN-13,Light Fact defends against Emotion,LIN,3,2,0,IN,IN,0.617,Y,3,Even a small Fact attacker defeats the Emotion claim.
+LIN-14,Eight-node chain even,LIN,8,7,0,OUT,IN,0.653,N,8,Even-depth chain: root defeated.
+LIN-15,Edge case zero weight attackers,LIN,2,1,0,IN,IN,0.954,Y,2,Minimum-weight Emotion attacker cannot defeat heavy Logic root.
+STR-01,Two attackers on root,STR,3,2,0,OUT,OUT,0.336,Y,2,Two undefeated attackers overwhelm the root.
+STR-02,"Three attackers, varied values",STR,4,3,0,OUT,OUT,0.359,Y,2,Stacked attacks of multiple value types.
+STR-03,Single Emotion attacker only,STR,2,1,0,IN,IN,0.692,Y,2,"Emotion attacker on Fact root, scaled by 0.8/1.2."
+STR-04,Star with heavy Fact attackers,STR,3,2,0,OUT,OUT,0.289,Y,2,Two heavy Fact attackers easily defeat the Logic root.
+STR-05,"Symmetric weights, mixed values",STR,3,2,0,OUT,OUT,0.303,Y,2,Two undefeated equally-weighted attackers.
+STR-06,Star with one weak attacker,STR,2,1,0,IN,IN,0.908,Y,2,"Weak attacker, heavy root: attack barely dents the score."
+STR-07,Four attackers all Logic,STR,5,4,0,OUT,OUT,0.25,Y,2,Four undefeated attackers crush the root.
+STR-08,Star with counter-attack on one,STR,4,3,0,OUT,OUT,0.427,Y,3,a4 defeats a2 but a3 still attacks a1 unchallenged.
+STR-09,All attackers defeated,STR,5,4,0,IN,IN,0.582,Y,3,Every attacker defeated by their own attacker.
+STR-10,Three medium attackers,STR,4,3,0,OUT,OUT,0.289,Y,2,Three undefeated attackers overwhelm the Logic root.
+STR-11,Heavy root vs many lightweight,STR,4,3,0,IN,IN,0.761,Y,2,Heavy root with low normalised attack damage.
+STR-12,Star with Ethics root,STR,3,2,0,OUT,OUT,0.347,Y,2,Fact and Ethics attackers on Ethics root: both effective.
+STR-13,All Emotion attackers vs Fact root,STR,4,3,0,IN,OUT,0.429,N,2,Three Emotion attackers heavily scaled down by mu=0.8/1.2.
+STR-14,Two-step star,STR,4,3,0,OUT,OUT,0.414,Y,3,a4 still attacks a1 even though a2 is defeated.
+STR-15,Defended on one side,STR,4,2,0,IN,IN,0.704,Y,3,Only attacker a2 is defeated by a4; root survives.
+BIP-01,"One attack, one support",BIP,3,1,1,IN,IN,1.0,Y,1,Support outweighs attack on root.
+BIP-02,Support tilts a close call,BIP,3,1,1,IN,IN,0.896,Y,2,Equal-weight attack roughly balanced by support boosts root.
+BIP-03,Heavy attack overwhelms light support,BIP,3,1,1,OUT,OUT,0.421,Y,2,Heavy Fact attack beats lightweight Emotion support.
+BIP-04,Support chain,BIP,3,0,2,IN,IN,1.0,Y,1,"All-support chain, root strengthened."
+BIP-05,Two supports vs two attacks,BIP,5,2,2,IN,IN,1.0,Y,1,Balanced graph but supports slightly stronger.
+BIP-06,Support a defender,BIP,4,2,1,IN,IN,0.699,Y,3,Supported defender wins the chain.
+BIP-07,Counter via support,BIP,3,1,1,IN,IN,1.0,Y,1,Support neutralises attack via score boost.
+BIP-08,Emotion support boost,BIP,3,1,1,OUT,IN,0.833,N,2,Emotion support scaled down by mu=0.8/1.0 fails to defend.
+BIP-09,Fact support boost,BIP,3,1,1,IN,IN,1.0,Y,1,Fact support boosted by mu=1.2/1.1 saves Logic root.
+BIP-10,Bipolar with cycle-like,BIP,4,1,2,OUT,IN,0.955,N,2,"Supported attacker wins, plus support to root insufficient."
+BIP-11,Double support same target,BIP,4,1,2,IN,IN,1.0,Y,1,Two supports outweigh one attack.
+BIP-12,Attack the supporter,BIP,3,1,1,OUT,IN,1.0,N,2,"Supporter weakened, root left undefended."
+BIP-13,Triple support stack,BIP,5,1,3,IN,IN,1.0,Y,1,Three supports clearly outweigh one attack.
+BIP-14,Heavy Fact support saves Logic root,BIP,3,1,1,IN,IN,1.0,Y,1,Heavier Fact support overcomes Fact attack.
+BIP-15,Bipolar with all Emotion,BIP,3,1,1,IN,IN,1.0,Y,1,"Equal Emotion values, support wins by formula symmetry plus the +1 baseline."
+LNG-01,Climate debate (12 nodes),LNG,12,4,7,IN,IN,1.0,Y,1,Many supports including heavy Fact tags overwhelm attacks.
+LNG-02,Tech regulation (10 nodes),LNG,10,4,5,IN,IN,1.0,Y,2,Most attackers defeated; many supports survive.
+LNG-03,Education policy (11 nodes),LNG,11,6,4,IN,IN,1.0,Y,2,"All attackers defeated by counters, four supports remain."
+LNG-04,Vegetarian ethics (10 nodes),LNG,10,6,3,IN,IN,1.0,Y,2,"All attackers neutralised, multiple supports survive."
+LNG-05,Crypto debate (10 nodes),LNG,10,7,2,OUT,OUT,0.301,Y,3,Heavy Fact attackers undefeated; root cannot survive.
+LNG-06,Privacy vs security (12 nodes),LNG,12,9,2,OUT,OUT,0.201,Y,2,"Overwhelming attacker count, supports are themselves attacked."
+LNG-07,AI in art (10 nodes),LNG,10,8,1,OUT,OUT,0.245,Y,4,"Even though most attackers are defeated, a10 survives unchallenged."
+LNG-08,Space exploration (10 nodes),LNG,10,7,2,OUT,OUT,0.492,Y,3,a10 attacks root unchallenged; supports do not save it.
+LNG-09,Nuclear power (11 nodes),LNG,11,9,1,IN,OUT,0.461,N,3,All four attackers on a1 have surviving counter-attacks.
+LNG-10,Public transit (10 nodes),LNG,10,5,4,IN,IN,1.0,Y,2,"Most attackers neutralised, multiple supports survive."
+LNG-11,Universal basic income (12 nodes),LNG,12,8,3,IN,IN,1.0,Y,3,"All attackers defeated, three supports remain."
+LNG-12,Drug decriminalisation (10 nodes),LNG,10,7,2,IN,IN,1.0,Y,3,"Emotion attacker a10 weakened by mu, others defeated."
+LNG-13,Open borders (12 nodes),LNG,12,9,2,OUT,IN,0.743,N,3,"a12 survives all-Logic counter, plus high attack count."
+LNG-14,Animal testing (10 nodes),LNG,10,5,4,IN,IN,1.0,Y,2,"Major attackers defeated, four supports stand."
+LNG-15,Tech monopolies (11 nodes),LNG,11,8,2,IN,IN,0.754,Y,3,"All four attackers neutralised, supports remain."
