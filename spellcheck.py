@@ -30,7 +30,7 @@ except Exception:
 # having to dismiss them every turn.
 _DOMAIN_WHITELIST = {
     # technical terms
-    "graphviz", "llm", "llms", "groq", "llama", "whisper", "ngrok", "tikz",
+    "graphviz", "llm", "llms", "groq", "llama", "whisper", "tikz",
     "mdp", "dung", "wachsmuth", "prakken", "cayrol", "bench-capon",
     "amgoud", "besnard", "stamper", "rapanta", "macagno", "toulmin",
     # internal vocabulary
