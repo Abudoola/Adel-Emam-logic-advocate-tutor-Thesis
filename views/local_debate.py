@@ -104,6 +104,138 @@ def _load_battle(idx: int) -> None:
     st.session_state.battle_over = True
 
 
+# ============================================================ UNDO
+
+def _undo_last_move() -> None:
+    """
+    Pop the most recent move(s) off the engine and the chat.
+
+    In Human-vs-AI mode the AI's reply is paired with the user's move, so
+    we pop BOTH the AI's last reply and the user's preceding move (the AI
+    only spoke because the user did). In Human-vs-Human or AI-vs-AI mode
+    we pop just one move.
+    """
+    msgs = st.session_state.messages
+    if not msgs:
+        st.toast("Nothing to undo.")
+        return
+
+    # How many moves to pop?
+    is_hvai = (st.session_state.mode == "🤖 Human vs AI")
+    n_pop = 1
+    if is_hvai and len(msgs) >= 2:
+        last_two = msgs[-2:]
+        if last_two[0]["side"] == "Side A" and last_two[1]["side"] == "Side B":
+            n_pop = 2
+        elif msgs[-1].get("id") == "Concession" and len(msgs) >= 2:
+            # Concession after a user move: pop both
+            n_pop = 2
+
+    popped = msgs[-n_pop:]
+    st.session_state.messages = msgs[:-n_pop]
+
+    # Rebuild the engine from the truncated message list
+    st.session_state.engine = AcademicLogicEngine.rebuild_from_messages(
+        st.session_state.messages
+    )
+    # Roll the counter back to the highest remaining Msg_X id + 1
+    remaining = [
+        int(m["id"].split("_")[1]) for m in st.session_state.messages
+        if m["id"].startswith("Msg_")
+    ]
+    st.session_state.msg_counter = (max(remaining) + 1) if remaining else 1
+
+    # Re-open the debate if the popped moves included the concession or
+    # a manual end. Otherwise stay in whatever state we were in.
+    if any(p.get("id") == "Concession" for p in popped):
+        st.session_state.battle_over = False
+    if st.session_state.battle_over and st.session_state.messages:
+        st.session_state.battle_over = False
+
+    # Clear stale UI state
+    st.session_state.detected_premise = None
+    st.session_state.attach_premise = False
+    st.session_state.spell_typos = None
+    st.session_state.last_hint = None
+
+    st.toast(f"↩️ Undid {n_pop} move{'s' if n_pop > 1 else ''}.")
+
+
+# ============================================================ ANALYSIS HELPERS
+
+def _compute_trajectory(messages):
+    """
+    Replay every move and record the engine state after each one.
+    Returns a list of dicts with main_score, statuses, side weights.
+    """
+    trajectory = []
+    engine = AcademicLogicEngine()
+    for i, m in enumerate(messages):
+        if m.get("id") == "Concession":
+            continue
+        engine.add_argument(m["id"], m["content"], m.get("weight", 5),
+                             m.get("value_tag", "Logic"))
+        tgt = m.get("target")
+        if tgt and tgt != "None":
+            if m.get("action") == "Attack":
+                engine.add_direct_attack(m["id"], tgt)
+            else:
+                engine.add_support(m["id"], tgt)
+        engine.evaluate_semantics()
+
+        a_weight = sum(
+            engine.nodes[mm["id"]]["weight"] for mm in messages[:i + 1]
+            if mm["id"] in engine.nodes
+            and engine.statuses.get(mm["id"]) == "IN"
+            and mm["side"] == "Side A"
+        )
+        b_weight = sum(
+            engine.nodes[mm["id"]]["weight"] for mm in messages[:i + 1]
+            if mm["id"] in engine.nodes
+            and engine.statuses.get(mm["id"]) == "IN"
+            and mm["side"] == "Side B"
+        )
+        trajectory.append({
+            "turn":         i + 1,
+            "move_id":      m["id"],
+            "side":         m["side"],
+            "value_tag":    m.get("value_tag", "Logic"),
+            "main_score":   round(engine.scores.get("Msg_1", 1.0), 3),
+            "main_status":  engine.statuses.get("Msg_1", "IN"),
+            "side_a_weight": a_weight,
+            "side_b_weight": b_weight,
+        })
+    return trajectory
+
+
+def _find_turning_point(trajectory):
+    """
+    Return the turn index where the Main Claim's status FLIPPED for the
+    last time (the move that decided the final verdict). Returns None
+    if no flip occurred.
+    """
+    if len(trajectory) < 2:
+        return None
+    final_status = trajectory[-1]["main_status"]
+    for i in range(len(trajectory) - 1, 0, -1):
+        if trajectory[i]["main_status"] != trajectory[i - 1]["main_status"]:
+            return i
+    return None
+
+
+def _value_tag_breakdown(messages):
+    """Count value tags per side."""
+    counts = {"Side A": {}, "Side B": {}}
+    for m in messages:
+        if m.get("id") == "Concession":
+            continue
+        side = m.get("side")
+        tag  = m.get("value_tag", "Logic")
+        if side in counts:
+            counts[side][tag] = counts[side].get(tag, 0) + 1
+    return counts
+
+
 # ============================================================ TOP DASHBOARD
 
 def _render_top_dashboard() -> None:
@@ -640,6 +772,19 @@ def _render_sidebar() -> None:
     if st.sidebar.button("🚨 End Debate Now", use_container_width=True):
         st.session_state.battle_over = True
         st.rerun()
+
+    # Undo last move (pairs the user + AI moves in HvAI mode)
+    can_undo = bool(st.session_state.get("messages"))
+    if st.sidebar.button(
+        "↩️ Undo Last Move",
+        use_container_width=True,
+        disabled=not can_undo,
+        help=("Pops the most recent move off the engine. In Human vs AI mode "
+              "this undoes both your move and the AI's reply."),
+    ):
+        _undo_last_move()
+        st.rerun()
+
     if st.sidebar.button("💾 Save Battle", use_container_width=True):
         _save_battle()
 
@@ -716,9 +861,18 @@ def _render_blitz_timer() -> None:
 # ============================================================ VICTORY SCREEN
 
 def _render_victory_screen() -> None:
-    st.header("🏁 The Debate Has Concluded!")
-    main_status = st.session_state.engine.statuses.get("Msg_1", "OUT")
+    """
+    Rich post-debate analysis screen.
 
+    Shows: the final verdict, score trajectory chart, turning-point move,
+    value-tag distribution per side, and the per-node final score table.
+    """
+    engine = st.session_state.engine
+    messages = st.session_state.messages
+    main_status = engine.statuses.get("Msg_1", "OUT")
+
+    # ---------- Verdict banner ----------
+    st.header("🏁 The Debate Has Concluded!")
     if main_status == "IN":
         st.markdown(
             '<div class="victory-box" style="background-color: rgba(40,167,69,0.2); '
@@ -735,14 +889,132 @@ def _render_victory_screen() -> None:
             unsafe_allow_html=True,
         )
 
-    st.write("")
-    if st.button("🔄 Start New Debate", use_container_width=True, type="primary"):
-        for key in ["engine", "messages", "msg_counter", "battle_over",
-                    "current_turn", "history", "turn_start_time",
-                    "hints_used_recent", "last_hint"]:
-            if key in st.session_state:
-                del st.session_state[key]
-        st.rerun()
+    if not messages:
+        if st.button("🔄 Start New Debate", use_container_width=True, type="primary"):
+            _wipe_session_for_new_debate()
+            st.rerun()
+        return
+
+    st.divider()
+    st.subheader("📈 Post-Debate Analysis")
+
+    # ---------- Compute trajectory ----------
+    trajectory = _compute_trajectory(messages)
+
+    # ---------- Headline metrics ----------
+    final_main_score = trajectory[-1]["main_score"] if trajectory else 1.0
+    final_a_weight = trajectory[-1]["side_a_weight"] if trajectory else 0
+    final_b_weight = trajectory[-1]["side_b_weight"] if trajectory else 0
+    total_moves = len([m for m in messages if m.get("id") != "Concession"])
+
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric("Main Claim final score", f"{final_main_score:.3f}")
+    with c2:
+        st.metric("Total moves played", total_moves)
+    with c3:
+        st.metric("Side A surviving weight", final_a_weight)
+    with c4:
+        st.metric("Side B surviving weight", final_b_weight)
+
+    # ---------- Score trajectory chart ----------
+    if len(trajectory) >= 2:
+        st.markdown("**Main Claim score over time** "
+                     "(0.5 = the IN/OUT threshold)")
+        chart_data = {
+            "Turn": [t["turn"] for t in trajectory],
+            "Main Claim score": [t["main_score"] for t in trajectory],
+            "Threshold": [0.5] * len(trajectory),
+        }
+        st.line_chart(chart_data, x="Turn", height=220)
+
+        st.markdown("**Side momentum over time** "
+                     "(cumulative weight of each side's surviving arguments)")
+        momentum_data = {
+            "Turn": [t["turn"] for t in trajectory],
+            "Side A": [t["side_a_weight"] for t in trajectory],
+            "Side B": [t["side_b_weight"] for t in trajectory],
+        }
+        st.line_chart(momentum_data, x="Turn", height=220)
+
+    # ---------- Turning point ----------
+    turn_idx = _find_turning_point(trajectory)
+    if turn_idx is not None:
+        turning = trajectory[turn_idx]
+        st.markdown("**🎯 Turning-point move**")
+        st.info(
+            f"At turn **{turning['turn']}**, "
+            f"**{turning['move_id']}** by **{turning['side']}** "
+            f"(value tag: {turning['value_tag']}) flipped the Main Claim's "
+            f"status to **{turning['main_status']}**. "
+            f"This was the decisive move of the debate."
+        )
+
+    # ---------- Value-tag breakdown ----------
+    st.markdown("**🏷️ Value-tag distribution per side**")
+    tag_counts = _value_tag_breakdown(messages)
+    tag_cols = st.columns(2)
+    with tag_cols[0]:
+        st.markdown(f"**Side A** — {sum(tag_counts['Side A'].values())} moves")
+        if tag_counts["Side A"]:
+            for tag, n in sorted(tag_counts["Side A"].items(),
+                                   key=lambda x: -x[1]):
+                st.markdown(f"• {tag}: {n}")
+        else:
+            st.caption("(no moves)")
+    with tag_cols[1]:
+        st.markdown(f"**Side B** — {sum(tag_counts['Side B'].values())} moves")
+        if tag_counts["Side B"]:
+            for tag, n in sorted(tag_counts["Side B"].items(),
+                                   key=lambda x: -x[1]):
+                st.markdown(f"• {tag}: {n}")
+        else:
+            st.caption("(no moves)")
+
+    # ---------- Final node scores ----------
+    with st.expander("📋 Final per-node scores", expanded=False):
+        rows = []
+        for mid, n in engine.nodes.items():
+            side = next((m["side"] for m in messages if m["id"] == mid), "?")
+            rows.append({
+                "Node":      mid,
+                "Side":      side,
+                "Value":     n.get("value_tag", "Logic"),
+                "Weight":    n["weight"],
+                "Score":     round(engine.scores.get(mid, 1.0), 3),
+                "Status":    engine.statuses.get(mid, "OUT"),
+                "Text":      n["text"][:60] + ("..." if len(n["text"]) > 60 else ""),
+            })
+        if rows:
+            st.dataframe(rows, hide_index=True, use_container_width=True)
+
+    st.divider()
+    cols = st.columns(2)
+    with cols[0]:
+        if st.button("🔄 Start New Debate", use_container_width=True,
+                      type="primary"):
+            _wipe_session_for_new_debate()
+            st.rerun()
+    with cols[1]:
+        if st.button("📐 Export this Debate as TikZ", use_container_width=True):
+            from tikz_export import export_to_tikz
+            st.session_state.tikz_export_text = export_to_tikz(
+                st.session_state.engine,
+                debate_title=f"{st.session_state.mode[2:]} debate",
+                label=f"fig:debate-{int(time.time())}",
+                include_text=True,
+            )
+            st.toast("✅ TikZ exported — see sidebar")
+
+
+def _wipe_session_for_new_debate() -> None:
+    """Reset every per-debate key from session_state."""
+    for key in ["engine", "messages", "msg_counter", "battle_over",
+                 "current_turn", "history", "turn_start_time",
+                 "hints_used_recent", "last_hint",
+                 "detected_premise", "attach_premise", "spell_typos"]:
+        if key in st.session_state:
+            del st.session_state[key]
 
 
 # ============================================================ ENTRY POINT
@@ -857,3 +1129,40 @@ def render_local_debate() -> None:
         )
 
     _render_sidebar()
+                "Side":      side,
+                "Value":     n.get("value_tag", "Logic"),
+                "Weight":    n["weight"],
+                "Score":     round(engine.scores.get(mid, 1.0), 3),
+                "Status":    engine.statuses.get(mid, "OUT"),
+                "Text":      n["text"][:60] + ("..." if len(n["text"]) > 60 else ""),
+            })
+        if rows:
+            st.dataframe(rows, hide_index=True, use_container_width=True)
+
+    st.divider()
+    cols = st.columns(2)
+    with cols[0]:
+        if st.button("🔄 Start New Debate", use_container_width=True,
+                      type="primary"):
+            _wipe_session_for_new_debate()
+            st.rerun()
+    with cols[1]:
+        if st.button("📐 Export this Debate as TikZ", use_container_width=True):
+            from tikz_export import export_to_tikz
+            st.session_state.tikz_export_text = export_to_tikz(
+                st.session_state.engine,
+                debate_title=f"{st.session_state.mode[2:]} debate",
+                label=f"fig:debate-{int(time.time())}",
+                include_text=True,
+            )
+            st.toast("✅ TikZ exported — see sidebar")
+
+
+def _wipe_session_for_new_debate() -> None:
+    """Reset every per-debate key from session_state."""
+    for key in ["engine", "messages", "msg_counter", "battle_over",
+                 "current_turn", "history", "turn_start_time",
+                 "hints_used_recent", "last_hint",
+                 "detected_premise", "attach_premise", "spell_typos"]:
+        if key in st.session_state:
+            del st.session_state[key]
