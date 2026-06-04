@@ -71,6 +71,30 @@ CHAT_CSS = """
     letter-spacing: 0.3px;
 }
 
+/* =================================== Composer ======================== */
+
+[data-testid="stForm"] [data-testid="stTextInput"] div[data-baseweb="input"],
+[data-testid="stForm"] [data-testid="stTextInput"] div[data-baseweb="base-input"] {
+    min-height: 92px !important;
+    height: 92px !important;
+    border-radius: 14px !important;
+    align-items: center !important;
+}
+
+[data-testid="stForm"] [data-testid="stTextInput"] input {
+    min-height: 92px !important;
+    height: 92px !important;
+    font-size: 18px !important;
+    line-height: 1.4 !important;
+    padding: 0 18px !important;
+}
+
+[data-testid="stForm"] [data-testid="stButton"] button {
+    min-height: 50px !important;
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+}
+
 /* =================================== Status cards ==================== */
 
 .stat-card {
@@ -194,9 +218,181 @@ CHAT_CSS = """
 </style>
 """
 
+BRIGHT_THEME_CSS = """
+<style>
+:root {
+    --lat-page: #F6F7FB;
+    --lat-panel: #FFFFFF;
+    --lat-panel-soft: #EEF1F7;
+    --lat-border: rgba(20, 33, 61, 0.14);
+    --lat-text: #1F2937;
+    --lat-muted: #5B6472;
+}
+
+.stApp {
+    background: var(--lat-page);
+    color: var(--lat-text);
+}
+
+[data-testid="stSidebar"],
+[data-testid="stSidebarContent"] {
+    background: #FFFFFF;
+    color: var(--lat-text);
+}
+
+[data-testid="stHeader"] {
+    background: rgba(246, 247, 251, 0.82);
+}
+
+[data-testid="stMarkdownContainer"],
+[data-testid="stCaptionContainer"],
+[data-testid="stMetricLabel"],
+[data-testid="stMetricValue"],
+h1, h2, h3, h4, h5, h6 {
+    color: var(--lat-text);
+}
+
+[data-testid="stCaptionContainer"] {
+    color: var(--lat-muted);
+}
+
+[data-testid="stSelectbox"] label,
+[data-testid="stTextInput"] label,
+[data-testid="stTextArea"] label,
+[data-testid="stFileUploader"] label,
+[data-testid="stRadio"] label,
+[data-testid="stCheckbox"] label {
+    color: var(--lat-text);
+}
+
+[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+[data-testid="stTextInput"] div[data-baseweb="input"],
+[data-testid="stTextInput"] div[data-baseweb="base-input"],
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea {
+    background: #FFFFFF;
+    border-color: var(--lat-border);
+    color: var(--lat-text);
+}
+
+[data-testid="stTextInput"] input {
+    caret-color: var(--lat-text);
+}
+
+[data-testid="stTextInput"] input::placeholder,
+[data-testid="stTextArea"] textarea::placeholder {
+    color: #7A8494;
+    opacity: 1;
+}
+
+[data-testid="stButton"] button,
+[data-testid="stDownloadButton"] button,
+.stButton > button,
+.stDownloadButton > button {
+    background: #FFFFFF;
+    border: 1px solid var(--lat-border);
+    color: var(--lat-text);
+    box-shadow: 0 1px 4px rgba(20, 33, 61, 0.05);
+}
+
+[data-testid="stButton"] button:hover,
+[data-testid="stDownloadButton"] button:hover,
+.stButton > button:hover,
+.stDownloadButton > button:hover {
+    border-color: #5865F2;
+    color: #1F2937;
+}
+
+[data-testid="stButton"] button[kind="primary"],
+[data-testid="stDownloadButton"] button[kind="primary"],
+button[data-testid="baseButton-primary"] {
+    background: #5865F2;
+    border-color: #5865F2;
+    color: #FFFFFF;
+}
+
+[data-testid="stButton"] button:disabled,
+[data-testid="stDownloadButton"] button:disabled,
+.stButton > button:disabled,
+.stDownloadButton > button:disabled,
+button[data-testid^="baseButton"]:disabled {
+    background: #EEF1F7;
+    border-color: var(--lat-border);
+    color: #7A8494;
+    opacity: 1;
+}
+
+[data-testid="stButton"] button:disabled *,
+[data-testid="stDownloadButton"] button:disabled *,
+.stButton > button:disabled *,
+.stDownloadButton > button:disabled * {
+    color: #7A8494;
+    opacity: 1;
+}
+
+[data-testid="stSelectbox"] svg,
+[data-testid="stTextInput"] svg,
+[data-testid="stTextArea"] svg,
+[data-testid="stButton"] svg {
+    color: currentColor;
+    fill: currentColor;
+}
+
+.stat-card {
+    background: var(--lat-panel);
+    border: 1px solid var(--lat-border);
+    color: var(--lat-text);
+    box-shadow: 0 2px 10px rgba(20, 33, 61, 0.06);
+}
+.stat-card b {
+    color: var(--lat-muted);
+}
+
+.hint-card {
+    background: #F3F6FF;
+    border-color: rgba(88, 101, 242, 0.24);
+    color: var(--lat-text);
+}
+.hint-body {
+    color: var(--lat-text);
+}
+.hint-debug {
+    color: var(--lat-muted);
+    opacity: 1;
+}
+
+.inspector-card {
+    background: var(--lat-panel);
+    border-color: var(--lat-border);
+    color: var(--lat-text);
+}
+
+.turn-indicator {
+    background: var(--lat-panel);
+}
+
+.victory-box {
+    box-shadow: 0 4px 18px rgba(20, 33, 61, 0.12);
+}
+</style>
+"""
+
+DARK_THEME_CSS = """
+<style>
+.stApp {
+    background: #1E1F22;
+}
+</style>
+"""
+
 
 def inject_css() -> None:
     st.markdown(CHAT_CSS, unsafe_allow_html=True)
+    theme = st.session_state.get("theme_mode", "Dark")
+    st.markdown(
+        BRIGHT_THEME_CSS if theme == "Bright" else DARK_THEME_CSS,
+        unsafe_allow_html=True,
+    )
 
 
 # ============================================================ Render helpers
@@ -265,30 +461,118 @@ def render_momentum_bar(messages, statuses, nodes) -> None:
 
 
 def render_logic_graph(engine, messages):
-    """Graphviz output tuned to the dark theme."""
+    """Graphviz output tuned for a tall, narrow SIDE PANEL.
+
+    The map is intended to render in a column roughly 35-40% of the page
+    width, alongside the chat. Aspect ratio is therefore narrow + tall.
+    """
     import graphviz
     graph = graphviz.Digraph()
-    graph.attr(rankdir="TB", bgcolor="transparent")
+    # No `size`/`ratio` cap: let the graph render at its natural height so
+    # the host container can grow with the debate. Streamlit's
+    # `use_container_width=True` still scales the SVG to fit the column
+    # width. Tight nodesep/ranksep keep the layout compact.
+    graph.attr(rankdir="TB", bgcolor="transparent",
+               nodesep="0.12",
+               ranksep="0.22",
+               margin="0.04", pad="0.04",
+               fontname="Helvetica")
+    # Defaults so every node uses the same compact rounded-box shape.
+    graph.attr("node", shape="box", style="rounded,filled",
+               fontname="Helvetica", fontsize="10",
+               fontcolor="white", color="#3F4147",
+               margin="0.08,0.04", penwidth="2.5")
+    graph.attr("edge", fontname="Helvetica", fontsize="9",
+               penwidth="1.6", arrowsize="0.6")
+
+    # Per-message lookups for side/provider colour and premise marking.
+    side_map = {}
+    provider_map = {}
+    premise_set = set()
+    for m in messages:
+        side_map[m["id"]] = m.get("side", "")
+        provider_map[m["id"]] = m.get("provider", "")
+        if m.get("is_premise"):
+            premise_set.add(m["id"])
+
+    provider_graph = any(provider_map.values())
+    if not provider_graph:
+        graph.attr(size="2.4,3.4!", ratio="compress")
+        graph.attr("node", fontsize="6", margin="0.04,0.025", penwidth="1.2")
+        graph.attr("edge", fontsize="6", penwidth="1.0", arrowsize="0.4")
 
     for mid, ndata in engine.nodes.items():
         score = engine.scores.get(mid, 1.0)
-        score_pct = int(score * 100)
+        score_pct = int(round(score * 100))
         val_tag = ndata.get("value_tag", "Logic")
-        # Red -> yellow -> green ramp
-        r = int(255 * (1.0 - score))
-        g = int(200 * score)
-        fill = f"#{r:02x}{g:02x}44"
-        label = f"{mid}\n[{val_tag}]\n{score_pct}%"
-        graph.node(mid, label, style="filled",
-                   fillcolor=fill, fontcolor="white", fontsize="10",
-                   color="#3F4147")
+        status  = engine.statuses.get(mid, "OUT")
+
+        # Fill: muted red <-> muted forest-green gradient by score.
+        # Interpolate in straight RGB. Endpoints are picked for contrast
+        # with white text and to avoid the harsh lime / fire-engine look
+        # of the earlier palette.
+        if status == "IN":
+            # Vivid emerald palette that reads well on the dark UI.
+            # score 0.50 (borderline IN) -> soft mint (#66BB6A) - paler
+            # score 1.00 (strongly IN)   -> rich emerald (#16A34A) - saturated
+            t = max(0.0, min(1.0, (score - 0.5) * 2))
+            r_c = int(round(102 + ( 22 - 102) * t))   # 102 -> 22
+            g_c = int(round(187 + (163 - 187) * t))   # 187 -> 163
+            b_c = int(round(106 + ( 74 - 106) * t))   # 106 -> 74
+            fill = f"#{r_c:02x}{g_c:02x}{b_c:02x}"
+            status_mark = "IN"
+        else:
+            # score 0.50 (borderline OUT) -> muted brick red
+            # score 0.00 (strongly OUT)   -> deep crimson
+            t = max(0.0, min(1.0, (0.5 - score) * 2))
+            r_c = int(round(176 + (183 - 176) * t))   # 176 -> 183
+            g_c = int(round( 88 + ( 28 -  88) * t))   #  88 -> 28
+            b_c = int(round( 88 + ( 28 -  88) * t))   #  88 -> 28
+            fill = f"#{r_c:02x}{g_c:02x}{b_c:02x}"
+            status_mark = "OUT"
+
+        side = side_map.get(mid, "")
+        provider = provider_map.get(mid, "")
+
+        if provider:
+            if "OpenRouter" in provider:
+                border_color = "#5865F2"
+                fill = "#5865F2"
+                owner_label = "OR"
+            elif "fallback" in provider.lower():
+                border_color = "#6c757d"
+                fill = "#6c757d"
+                owner_label = "FB"
+            else:
+                border_color = "#28a745"
+                fill = "#16A34A"
+                owner_label = "Groq"
+        elif side == "Side A":
+            border_color = "#F59E0B"   # amber
+            owner_label = "A"
+        elif side == "Side B":
+            border_color = "#A855F7"   # purple
+            owner_label = "B"
+        else:
+            border_color = "#9CA3AF"   # neutral grey
+            owner_label = "-"
+
+        premise_mark = " *" if mid in premise_set else ""
+        label = f"{mid} [{owner_label}{premise_mark}]\n{status} {val_tag} {score_pct}%"
+        graph.node(mid, label, fillcolor=fill, color=border_color)
 
     for m in messages:
         tgt = m.get("target")
         if tgt and tgt != "None":
             is_attack = (m.get("action") == "Attack")
-            ecol  = "#F23F42" if is_attack else "#5865F2"
-            elabel = "⚔" if is_attack else "🛡"
+            if is_attack:
+                ecol  = "#F23F42"
+                elabel = "atk"
+                style = "solid"
+            else:
+                ecol  = "#5865F2"
+                elabel = "sup"
+                style = "dashed"
             graph.edge(m["id"], tgt, color=ecol, label=elabel,
-                       fontcolor=ecol, fontsize="9")
+                       fontcolor=ecol, style=style)
     return graph

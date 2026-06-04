@@ -104,7 +104,26 @@ class AcademicLogicEngine:
                         mult  = VALUE_WEIGHTS[s_val] / VALUE_WEIGHTS[t_val]
                         support_sum += self.scores[sup] * self.nodes[sup]["weight"] * mult
 
-                score = (1.0 + support_sum / target_weight) / (1.0 + attack_sum / target_weight)
+                # SUPPORT_COEFF < 1 means a supporter only PARTIALLY compensates
+                # an attacker of equal weight. With the previous coefficient 1.0
+                # the score saturated at 1.0 as soon as sigma >= alpha, so any
+                # "balanced" debate (every claim defended by an equal supporter)
+                # ended up with EVERY node at 100 percent. That is mathematically
+                # consistent but visually uninformative: the map looked the same
+                # whether a side dominated, conceded, or fought a draw.
+                #
+                # SUPPORT_COEFF = 0.5 means:
+                #   no attack at all:  score = 1 + 0.5*sigma/w, capped at 1.0
+                #   balanced sigma=alpha: score = (1 + 0.5)/(1 + 1) = 0.75
+                #     -> visible damage: the claim survives (>= 0.5) but is
+                #        clearly under pressure.
+                #   sigma >= 2 * alpha:  score = 1.0 again
+                #     -> only a clearly DOMINANT supporter restores full strength.
+                # The classical limit (sigma = 0) is unchanged:
+                #     score = 1 / (1 + alpha/w) = Besnard & Hunter h-categorizer.
+                SUPPORT_COEFF = 0.5
+                score = (1.0 + SUPPORT_COEFF * support_sum / target_weight) / \
+                        (1.0 + attack_sum / target_weight)
                 new_scores[mid] = min(1.0, score)
 
             max_delta = max(abs(new_scores[m] - self.scores[m]) for m in self.nodes)
@@ -188,31 +207,34 @@ class AcademicLogicEngine:
 
     @classmethod
     def from_dict(cls, data: Dict[str, object]) -> "AcademicLogicEngine":
-        engine = cls()
-        engine.nodes    = dict(data.get("nodes",    {}))
-        engine.attacks  = [tuple(p) for p in data.get("attacks",  [])]
-        engine.supports = [tuple(p) for p in data.get("supports", [])]
-        engine.scores   = dict(data.get("scores",   {}))
-        engine.statuses = dict(data.get("statuses", {}))
-        return engine
+        """Restore engine state from a saved dict."""
+        eng = cls()
+        eng.nodes    = data.get("nodes", {})
+        eng.attacks  = data.get("attacks", [])
+        eng.supports = data.get("supports", [])
+        eng.scores   = data.get("scores", {})
+        eng.statuses = data.get("statuses", {})
+        return eng
 
     @classmethod
     def rebuild_from_messages(cls, messages: List[Dict]) -> "AcademicLogicEngine":
+        """Construct a fresh engine from a list of debate messages.
+        Used by undo and by the post-debate trajectory replay. Returns
+        the new engine; the caller is responsible for assigning it.
         """
-        Construct an engine by replaying a list of move dicts. Used by the
-        multiplayer view and by the save/load flow so we never have to
-        persist the engine separately.
-        """
-        engine = cls()
+        eng = cls()
         for m in messages:
-            engine.add_argument(m["id"], m["content"], m.get("weight", 5),
-                                m.get("value_tag", "Logic"))
-        for m in messages:
+            mid = m.get("id") or m.get("mid")
+            if not mid or mid == "Concession":
+                continue
+            eng.add_argument(mid, m.get("content", ""),
+                             m.get("weight", 1),
+                             m.get("value_tag", "Logic"))
             tgt = m.get("target")
-            if tgt and tgt != "None":
-                if m.get("action") == "Attack":
-                    engine.add_direct_attack(m["id"], tgt)
+            if tgt and tgt != "None" and tgt in eng.nodes:
+                if m.get("action") == "Support":
+                    eng.add_support(mid, tgt)
                 else:
-                    engine.add_support(m["id"], tgt)
-        engine.evaluate_semantics()
-        return engine
+                    eng.add_direct_attack(mid, tgt)
+        eng.evaluate_semantics()
+        return eng

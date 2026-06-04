@@ -29,33 +29,33 @@ STR-12,Star with Ethics root,STR,OUT,OUT,0.347,OUT,0.347,OUT,0.37,OUT,0.312,OUT,
 STR-13,All Emotion attackers vs Fact root,STR,IN,OUT,0.429,OUT,0.429,OUT,0.333,OUT,0.333,OUT,0.0
 STR-14,Two-step star,STR,OUT,OUT,0.414,OUT,0.414,OUT,0.433,OUT,0.381,OUT,0.0
 STR-15,Defended on one side,STR,IN,IN,0.704,IN,0.704,IN,0.714,IN,0.655,IN,1.0
-BIP-01,"One attack, one support",BIP,IN,IN,1.0,IN,0.556,IN,1.0,IN,1.0,OUT,0.0
-BIP-02,Support tilts a close call,BIP,IN,IN,0.896,OUT,0.478,IN,0.9,IN,1.0,OUT,0.0
-BIP-03,Heavy attack overwhelms light support,BIP,OUT,OUT,0.421,OUT,0.289,IN,0.5,IN,0.826,OUT,0.0
+BIP-01,"One attack, one support",BIP,IN,IN,0.919,IN,0.556,IN,0.889,IN,0.773,OUT,0.0
+BIP-02,Support tilts a close call,BIP,IN,IN,0.687,OUT,0.478,IN,0.7,IN,0.739,OUT,0.0
+BIP-03,Heavy attack overwhelms light support,BIP,OUT,OUT,0.355,OUT,0.289,OUT,0.404,IN,0.652,OUT,0.0
 BIP-04,Support chain,BIP,IN,IN,1.0,IN,1.0,IN,1.0,IN,1.0,IN,1.0
-BIP-05,Two supports vs two attacks,BIP,IN,IN,1.0,OUT,0.316,IN,1.0,IN,0.971,OUT,0.0
+BIP-05,Two supports vs two attacks,BIP,IN,IN,0.663,OUT,0.316,IN,0.696,IN,0.632,OUT,0.0
 BIP-06,Support a defender,BIP,IN,IN,0.699,IN,0.699,IN,0.726,IN,0.637,IN,1.0
-BIP-07,Counter via support,BIP,IN,IN,1.0,OUT,0.481,IN,1.0,IN,1.0,OUT,0.0
-BIP-08,Emotion support boost,BIP,OUT,IN,0.833,IN,0.5,IN,1.0,IN,0.818,OUT,0.0
-BIP-09,Fact support boost,BIP,IN,IN,1.0,OUT,0.452,IN,1.0,IN,1.0,OUT,0.0
-BIP-10,Bipolar with cycle-like,BIP,OUT,IN,0.955,IN,0.503,IN,1.0,IN,0.952,OUT,0.0
-BIP-11,Double support same target,BIP,IN,IN,1.0,IN,0.505,IN,1.0,IN,1.0,OUT,0.0
+BIP-07,Counter via support,BIP,IN,IN,0.74,OUT,0.481,IN,0.763,IN,0.727,OUT,0.0
+BIP-08,Emotion support boost,BIP,OUT,IN,0.667,IN,0.5,IN,0.773,IN,0.636,OUT,0.0
+BIP-09,Fact support boost,BIP,IN,IN,0.726,OUT,0.452,IN,0.737,IN,0.739,OUT,0.0
+BIP-10,Bipolar with cycle-like,BIP,OUT,IN,0.729,IN,0.503,IN,0.763,IN,0.714,OUT,0.0
+BIP-11,Double support same target,BIP,IN,IN,0.979,IN,0.505,IN,1.0,IN,0.978,OUT,0.0
 BIP-12,Attack the supporter,BIP,OUT,IN,1.0,IN,1.0,IN,1.0,IN,1.0,IN,1.0
 BIP-13,Triple support stack,BIP,IN,IN,1.0,OUT,0.481,IN,1.0,IN,1.0,OUT,0.0
-BIP-14,Heavy Fact support saves Logic root,BIP,IN,IN,1.0,OUT,0.433,IN,1.0,IN,1.0,OUT,0.0
-BIP-15,Bipolar with all Emotion,BIP,IN,IN,1.0,IN,0.5,IN,1.0,IN,1.0,OUT,0.0
-LNG-01,Climate debate (12 nodes),LNG,IN,IN,1.0,OUT,0.228,IN,1.0,IN,1.0,OUT,0.0
-LNG-02,Tech regulation (10 nodes),LNG,IN,IN,1.0,OUT,0.321,IN,1.0,IN,1.0,OUT,0.0
+BIP-14,Heavy Fact support saves Logic root,BIP,IN,IN,0.858,OUT,0.433,IN,0.864,IN,0.739,OUT,0.0
+BIP-15,Bipolar with all Emotion,BIP,IN,IN,0.75,IN,0.5,IN,0.75,IN,0.75,OUT,0.0
+LNG-01,Climate debate (12 nodes),LNG,IN,IN,0.8,OUT,0.228,IN,0.765,IN,0.731,OUT,0.0
+LNG-02,Tech regulation (10 nodes),LNG,IN,IN,1.0,OUT,0.321,IN,0.97,IN,0.93,OUT,0.0
 LNG-03,Education policy (11 nodes),LNG,IN,IN,1.0,OUT,0.4,IN,1.0,IN,1.0,IN,1.0
 LNG-04,Vegetarian ethics (10 nodes),LNG,IN,IN,1.0,OUT,0.387,IN,1.0,IN,1.0,IN,1.0
-LNG-05,Crypto debate (10 nodes),LNG,OUT,OUT,0.301,OUT,0.163,OUT,0.338,OUT,0.398,OUT,0.0
-LNG-06,Privacy vs security (12 nodes),LNG,OUT,OUT,0.201,OUT,0.11,OUT,0.196,OUT,0.228,OUT,0.0
+LNG-05,Crypto debate (10 nodes),LNG,OUT,OUT,0.232,OUT,0.163,OUT,0.255,OUT,0.304,OUT,0.0
+LNG-06,Privacy vs security (12 nodes),LNG,OUT,OUT,0.156,OUT,0.11,OUT,0.149,OUT,0.173,OUT,0.0
 LNG-07,AI in art (10 nodes),LNG,OUT,OUT,0.245,OUT,0.245,OUT,0.26,OUT,0.258,OUT,0.0
-LNG-08,Space exploration (10 nodes),LNG,OUT,OUT,0.492,OUT,0.247,OUT,0.493,IN,0.571,OUT,0.0
-LNG-09,Nuclear power (11 nodes),LNG,IN,OUT,0.461,OUT,0.322,OUT,0.463,OUT,0.497,IN,1.0
+LNG-08,Space exploration (10 nodes),LNG,OUT,OUT,0.37,OUT,0.247,OUT,0.376,OUT,0.421,OUT,0.0
+LNG-09,Nuclear power (11 nodes),LNG,IN,OUT,0.391,OUT,0.322,OUT,0.392,OUT,0.417,IN,1.0
 LNG-10,Public transit (10 nodes),LNG,IN,IN,1.0,OUT,0.36,IN,1.0,IN,1.0,OUT,0.0
-LNG-11,Universal basic income (12 nodes),LNG,IN,IN,1.0,OUT,0.338,IN,1.0,IN,1.0,IN,1.0
-LNG-12,Drug decriminalisation (10 nodes),LNG,IN,IN,1.0,OUT,0.342,IN,0.896,IN,1.0,OUT,0.0
-LNG-13,Open borders (12 nodes),LNG,OUT,IN,0.743,OUT,0.208,IN,0.743,IN,0.751,OUT,0.0
+LNG-11,Universal basic income (12 nodes),LNG,IN,IN,0.892,OUT,0.338,IN,0.889,IN,0.84,IN,1.0
+LNG-12,Drug decriminalisation (10 nodes),LNG,IN,IN,0.716,OUT,0.342,IN,0.603,IN,0.674,OUT,0.0
+LNG-13,Open borders (12 nodes),LNG,OUT,OUT,0.476,OUT,0.208,OUT,0.483,OUT,0.493,OUT,0.0
 LNG-14,Animal testing (10 nodes),LNG,IN,IN,1.0,OUT,0.414,IN,1.0,IN,1.0,IN,1.0
-LNG-15,Tech monopolies (11 nodes),LNG,IN,IN,0.754,OUT,0.343,IN,0.729,IN,0.687,IN,1.0
+LNG-15,Tech monopolies (11 nodes),LNG,IN,IN,0.548,OUT,0.343,IN,0.547,OUT,0.499,IN,1.0

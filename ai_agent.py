@@ -62,11 +62,18 @@ HumanScore and AIScore should reflect reality, not flatter you.
 Rule C — Concede when there's no genuine counter.
 If you can only attack the human's argument by being pedantic, demanding
 evidence for a self-report, or splitting hairs, output the CONCEDE
-sentinel. Conceding is honest, not weak. Use 0|0|Logic|CONCEDE.
+sentinel. Conceding is honest, not weak. Use 0|0|Logic|Attack|None|CONCEDE.
 
-Rule D — Stay focused. Don't pick at irrelevant details.
+Rule D — Stay focused. Don’t pick at irrelevant details.
 Engage with what the human is actually claiming, not with the way they
 worded it. Ignore typos, casual phrasing, and small grammar issues.
+
+Rule E — Mix attacks and supports strategically.
+You are NOT forced to only attack. If one of YOUR earlier points is being
+weakened or if you want to develop a line of reasoning, you MAY choose
+‘Support’ and target one of your own previous message IDs to reinforce it.
+A strong debate uses BOTH offensive (Attack) and defensive (Support) moves
+at the right moments. Don’t be one-dimensional.
 
 STYLE FOR THE COUNTER-ARGUMENT TEXT:
 - Chatty and conversational, like a friend who actually cares.
@@ -80,23 +87,29 @@ Debate so far:
 Their latest argument is: '{latest_text}'.
 
 YOUR JOB:
-1. Internally rate their argument 1-25 (clarity + reasoning + how
-   well-grounded it is, INCLUDING personal experience under Rule A).
-2. Internally write your counter at whatever length fits.
-3. Internally rate your counter 1-25 — be honest under Rule B.
-4. Pick a value tag from: Logic, Fact, Ethics, Emotion.
-5. If Rule C applies, CONCEDE instead.
+1. Internally rate their argument 1-25.
+2. Internally write your response.
+3. Internally rate your response 1-25.
+4. Pick a value tag (Logic, Fact, Ethics, Emotion).
+5. Choose your Action. You have TWO OPTIONS:
+   - 'Attack' — target the OPPONENT’s message ID to counter their argument.
+   - 'Support' — target one of YOUR OWN previous message IDs to strengthen
+     your position. Use this when your point is under pressure or when
+     building on an earlier argument makes more sense than attacking.
+   Pick whichever makes the best strategic sense right now. Do NOT default
+   to Attack every time.
+6. If Rule C applies, CONCEDE instead.
 
 CRITICAL OUTPUT FORMAT:
 Output EXACTLY ONE LINE. No preamble, no explanation, no chain-of-thought,
 no "Here is my response:", no quotes, no bullet points.
 
-   HumanScore|AIScore|ValueTag|CounterText
+   HumanScore|AIScore|ValueTag|Action|TargetID|CounterText
 
 Examples of valid output:
-   18|11|Fact|Sure, but that's just you. The CDC suggests 2 litres a day for most adults, so what you do isn't a benchmark for everyone else.
-   8|22|Logic|That's a slippery slope. One example doesn't prove the rule, and you're skipping the mechanism that would make this true.
-   0|0|Logic|CONCEDE
+   18|11|Fact|Attack|Msg_3|Sure, but that's just you. The CDC suggests 2 litres a day...
+   8|22|Logic|Support|Msg_2|I want to strengthen my earlier point about this mechanism...
+   0|0|Logic|Attack|Msg_3|CONCEDE
 
 Output the single line now. Nothing else before or after."""
 
@@ -104,7 +117,12 @@ Output the single line now. Nothing else before or after."""
 def _build_transcript(messages: List[Dict]) -> str:
     out = []
     for m in messages:
-        out.append(f"{m['side']}: {m['content']}")
+        header = f"[{m['id']}] {m['side']}"
+        tgt = m.get("target")
+        act = m.get("action", "")
+        if tgt and tgt != "None" and act:
+            header += f" ({act}s {tgt})"
+        out.append(f"{header}: {m['content']}")
         if "media_path" in m:
             out.append("*[Attached Media Evidence]*")
     return "\n".join(out)
@@ -112,7 +130,10 @@ def _build_transcript(messages: List[Dict]) -> str:
 
 _PIPE_RE = re.compile(
     r"(\d{1,2})\s*\|\s*(\d{1,2})\s*\|\s*"
-    r"(Logic|Fact|Ethics|Emotion)\s*\|\s*([^\n]+)",
+    r"(Logic|Fact|Ethics|Emotion)\s*\|\s*"
+    r"(Attack|Support)\s*\|\s*"
+    r"(Msg_\d+|None)\s*\|\s*"
+    r"([^\n]+)",
     re.IGNORECASE,
 )
 
@@ -120,21 +141,22 @@ _PIPE_RE = re.compile(
 def _parse_counter_response(text: str) -> Dict[str, object]:
     matches = _PIPE_RE.findall(text)
     if matches:
-        hw_s, aw_s, tag, txt = matches[-1]
+        hw_s, aw_s, tag, action, target, txt = matches[-1]
         hw  = max(1, min(25, int(hw_s)))
         aw  = max(1, min(25, int(aw_s)))
         tag = tag.capitalize()
+        action = action.capitalize()
         txt = txt.strip().strip("'\"")
         if "CONCEDE" in txt.upper():
             return {
                 "human_weight": 0, "llm_weight": 0,
-                "llm_val": "Logic", "llm_text": "CONCEDE",
-                "parsed": True,
+                "llm_val": "Logic", "llm_action": action, "llm_target": target,
+                "llm_text": "CONCEDE", "parsed": True,
             }
         return {
             "human_weight": hw, "llm_weight": aw,
-            "llm_val": tag, "llm_text": txt,
-            "parsed": True,
+            "llm_val": tag, "llm_action": action, "llm_target": target,
+            "llm_text": txt, "parsed": True,
         }
 
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
@@ -144,6 +166,8 @@ def _parse_counter_response(text: str) -> Dict[str, object]:
         "human_weight": 12,
         "llm_weight":   12,
         "llm_val":      "Logic",
+        "llm_action":   "Attack",
+        "llm_target":   "None",
         "llm_text":     fallback,
         "parsed":       False,
     }
@@ -187,7 +211,7 @@ def generate_counter_argument(
     )
     raw = response.choices[0].message.content.strip()
     parsed = _parse_counter_response(raw)
-    return parsed["llm_weight"], parsed["llm_text"], parsed["human_weight"], parsed["llm_val"]
+    return parsed["llm_weight"], parsed["llm_text"], parsed["human_weight"], parsed["llm_val"], parsed["llm_action"], parsed["llm_target"]
 
 
 def generate_hint_v2(engine, messages, learner_side: str, recent_hints: int,

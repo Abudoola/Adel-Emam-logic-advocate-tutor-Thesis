@@ -5,6 +5,7 @@
 *.json
 uploads/
 public_url.txt
+review_work/
 
 # Python
 __pycache__/

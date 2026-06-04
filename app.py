@@ -67,11 +67,24 @@ def _switch_mode(old_mode: str, new_mode: str) -> None:
 # =========================================================== Routing
 
 st.sidebar.title("⚖️ Logic Advocate Tutor")
-st.sidebar.caption("Mode selection")
+st.sidebar.caption("Display and mode selection")
 
 if "mode" not in st.session_state:
     st.session_state.mode = MODES[0]
+if "theme_mode" not in st.session_state:
+    st.session_state.theme_mode = "Dark"
 
+theme_label = st.sidebar.radio(
+    "Display Mode:",
+    ["🌙 Dark", "☀️ Light"],
+    index=0 if st.session_state.theme_mode == "Dark" else 1,
+)
+theme_choice = "Dark" if theme_label.startswith("🌙") else "Bright"
+if theme_choice != st.session_state.theme_mode:
+    st.session_state.theme_mode = theme_choice
+    st.rerun()
+
+st.sidebar.markdown("---")
 chosen = st.sidebar.radio(
     "Select Game Mode:",
     MODES,

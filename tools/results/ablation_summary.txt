@@ -5,40 +5,38 @@ Total scenarios: 60
 
 Ablation            Flips   Mean |delta s|
 --------------------------------------------------
-NO_BIPOLAR          16/60 (26.7%)       0.206
-NO_VALUE_TAGS        2/60 ( 3.3%)       0.024
-NO_WEIGHTS           5/60 ( 8.3%)       0.074
-NO_GRADUAL          25/60 (41.7%)       0.525
+NO_BIPOLAR          15/60 (25.0%)       0.150
+NO_VALUE_TAGS        1/60 ( 1.7%)       0.025
+NO_WEIGHTS           5/60 ( 8.3%)       0.079
+NO_GRADUAL          24/60 (40.0%)       0.481
 
 
 NO_BIPOLAR flipped these scenarios:
-  [BIP-02] Support tilts a close call: FULL=IN (s=0.896) -> NO_BIPOLAR=OUT (s=0.478)
-  [BIP-05] Two supports vs two attacks: FULL=IN (s=1.000) -> NO_BIPOLAR=OUT (s=0.316)
-  [BIP-07] Counter via support: FULL=IN (s=1.000) -> NO_BIPOLAR=OUT (s=0.481)
-  [BIP-09] Fact support boost: FULL=IN (s=1.000) -> NO_BIPOLAR=OUT (s=0.452)
+  [BIP-02] Support tilts a close call: FULL=IN (s=0.687) -> NO_BIPOLAR=OUT (s=0.478)
+  [BIP-05] Two supports vs two attacks: FULL=IN (s=0.663) -> NO_BIPOLAR=OUT (s=0.316)
+  [BIP-07] Counter via support: FULL=IN (s=0.740) -> NO_BIPOLAR=OUT (s=0.481)
+  [BIP-09] Fact support boost: FULL=IN (s=0.726) -> NO_BIPOLAR=OUT (s=0.452)
   [BIP-13] Triple support stack: FULL=IN (s=1.000) -> NO_BIPOLAR=OUT (s=0.481)
-  [BIP-14] Heavy Fact support saves Logic root: FULL=IN (s=1.000) -> NO_BIPOLAR=OUT (s=0.433)
-  [LNG-01] Climate debate (12 nodes): FULL=IN (s=1.000) -> NO_BIPOLAR=OUT (s=0.228)
+  [BIP-14] Heavy Fact support saves Logic root: FULL=IN (s=0.858) -> NO_BIPOLAR=OUT (s=0.433)
+  [LNG-01] Climate debate (12 nodes): FULL=IN (s=0.800) -> NO_BIPOLAR=OUT (s=0.228)
   [LNG-02] Tech regulation (10 nodes): FULL=IN (s=1.000) -> NO_BIPOLAR=OUT (s=0.321)
   [LNG-03] Education policy (11 nodes): FULL=IN (s=1.000) -> NO_BIPOLAR=OUT (s=0.400)
   [LNG-04] Vegetarian ethics (10 nodes): FULL=IN (s=1.000) -> NO_BIPOLAR=OUT (s=0.387)
   [LNG-10] Public transit (10 nodes): FULL=IN (s=1.000) -> NO_BIPOLAR=OUT (s=0.360)
-  [LNG-11] Universal basic income (12 nodes): FULL=IN (s=1.000) -> NO_BIPOLAR=OUT (s=0.338)
-  [LNG-12] Drug decriminalisation (10 nodes): FULL=IN (s=1.000) -> NO_BIPOLAR=OUT (s=0.342)
-  [LNG-13] Open borders (12 nodes): FULL=IN (s=0.743) -> NO_BIPOLAR=OUT (s=0.208)
+  [LNG-11] Universal basic income (12 nodes): FULL=IN (s=0.892) -> NO_BIPOLAR=OUT (s=0.338)
+  [LNG-12] Drug decriminalisation (10 nodes): FULL=IN (s=0.716) -> NO_BIPOLAR=OUT (s=0.342)
   [LNG-14] Animal testing (10 nodes): FULL=IN (s=1.000) -> NO_BIPOLAR=OUT (s=0.414)
-  [LNG-15] Tech monopolies (11 nodes): FULL=IN (s=0.754) -> NO_BIPOLAR=OUT (s=0.343)
+  [LNG-15] Tech monopolies (11 nodes): FULL=IN (s=0.548) -> NO_BIPOLAR=OUT (s=0.343)
 
 NO_VALUE_TAGS flipped these scenarios:
   [LIN-08] Six-node chain even depth: FULL=OUT (s=0.492) -> NO_VALUE_TAGS=IN (s=0.509)
-  [BIP-03] Heavy attack overwhelms light support: FULL=OUT (s=0.421) -> NO_VALUE_TAGS=IN (s=0.500)
 
 NO_WEIGHTS flipped these scenarios:
   [LIN-08] Six-node chain even depth: FULL=OUT (s=0.492) -> NO_WEIGHTS=IN (s=0.599)
   [LIN-10] Lightweight reply to heavy attacker: FULL=OUT (s=0.260) -> NO_WEIGHTS=IN (s=0.637)
   [STR-11] Heavy root vs many lightweight: FULL=IN (s=0.761) -> NO_WEIGHTS=OUT (s=0.255)
-  [BIP-03] Heavy attack overwhelms light support: FULL=OUT (s=0.421) -> NO_WEIGHTS=IN (s=0.826)
-  [LNG-08] Space exploration (10 nodes): FULL=OUT (s=0.492) -> NO_WEIGHTS=IN (s=0.571)
+  [BIP-03] Heavy attack overwhelms light support: FULL=OUT (s=0.355) -> NO_WEIGHTS=IN (s=0.652)
+  [LNG-15] Tech monopolies (11 nodes): FULL=IN (s=0.548) -> NO_WEIGHTS=OUT (s=0.499)
 
 NO_GRADUAL flipped these scenarios:
   [LIN-04] Four-node alternating: FULL=IN (s=0.508) -> NO_GRADUAL=OUT (s=0.000)
@@ -49,20 +47,19 @@ NO_GRADUAL flipped these scenarios:
   [STR-03] Single Emotion attacker only: FULL=IN (s=0.692) -> NO_GRADUAL=OUT (s=0.000)
   [STR-06] Star with one weak attacker: FULL=IN (s=0.908) -> NO_GRADUAL=OUT (s=0.000)
   [STR-11] Heavy root vs many lightweight: FULL=IN (s=0.761) -> NO_GRADUAL=OUT (s=0.000)
-  [BIP-01] One attack, one support: FULL=IN (s=1.000) -> NO_GRADUAL=OUT (s=0.000)
-  [BIP-02] Support tilts a close call: FULL=IN (s=0.896) -> NO_GRADUAL=OUT (s=0.000)
-  [BIP-05] Two supports vs two attacks: FULL=IN (s=1.000) -> NO_GRADUAL=OUT (s=0.000)
-  [BIP-07] Counter via support: FULL=IN (s=1.000) -> NO_GRADUAL=OUT (s=0.000)
-  [BIP-08] Emotion support boost: FULL=IN (s=0.833) -> NO_GRADUAL=OUT (s=0.000)
-  [BIP-09] Fact support boost: FULL=IN (s=1.000) -> NO_GRADUAL=OUT (s=0.000)
-  [BIP-10] Bipolar with cycle-like: FULL=IN (s=0.955) -> NO_GRADUAL=OUT (s=0.000)
-  [BIP-11] Double support same target: FULL=IN (s=1.000) -> NO_GRADUAL=OUT (s=0.000)
+  [BIP-01] One attack, one support: FULL=IN (s=0.919) -> NO_GRADUAL=OUT (s=0.000)
+  [BIP-02] Support tilts a close call: FULL=IN (s=0.687) -> NO_GRADUAL=OUT (s=0.000)
+  [BIP-05] Two supports vs two attacks: FULL=IN (s=0.663) -> NO_GRADUAL=OUT (s=0.000)
+  [BIP-07] Counter via support: FULL=IN (s=0.740) -> NO_GRADUAL=OUT (s=0.000)
+  [BIP-08] Emotion support boost: FULL=IN (s=0.667) -> NO_GRADUAL=OUT (s=0.000)
+  [BIP-09] Fact support boost: FULL=IN (s=0.726) -> NO_GRADUAL=OUT (s=0.000)
+  [BIP-10] Bipolar with cycle-like: FULL=IN (s=0.729) -> NO_GRADUAL=OUT (s=0.000)
+  [BIP-11] Double support same target: FULL=IN (s=0.979) -> NO_GRADUAL=OUT (s=0.000)
   [BIP-13] Triple support stack: FULL=IN (s=1.000) -> NO_GRADUAL=OUT (s=0.000)
-  [BIP-14] Heavy Fact support saves Logic root: FULL=IN (s=1.000) -> NO_GRADUAL=OUT (s=0.000)
-  [BIP-15] Bipolar with all Emotion: FULL=IN (s=1.000) -> NO_GRADUAL=OUT (s=0.000)
-  [LNG-01] Climate debate (12 nodes): FULL=IN (s=1.000) -> NO_GRADUAL=OUT (s=0.000)
+  [BIP-14] Heavy Fact support saves Logic root: FULL=IN (s=0.858) -> NO_GRADUAL=OUT (s=0.000)
+  [BIP-15] Bipolar with all Emotion: FULL=IN (s=0.750) -> NO_GRADUAL=OUT (s=0.000)
+  [LNG-01] Climate debate (12 nodes): FULL=IN (s=0.800) -> NO_GRADUAL=OUT (s=0.000)
   [LNG-02] Tech regulation (10 nodes): FULL=IN (s=1.000) -> NO_GRADUAL=OUT (s=0.000)
-  [LNG-09] Nuclear power (11 nodes): FULL=OUT (s=0.461) -> NO_GRADUAL=IN (s=1.000)
+  [LNG-09] Nuclear power (11 nodes): FULL=OUT (s=0.391) -> NO_GRADUAL=IN (s=1.000)
   [LNG-10] Public transit (10 nodes): FULL=IN (s=1.000) -> NO_GRADUAL=OUT (s=0.000)
-  [LNG-12] Drug decriminalisation (10 nodes): FULL=IN (s=1.000) -> NO_GRADUAL=OUT (s=0.000)
-  [LNG-13] Open borders (12 nodes): FULL=IN (s=0.743) -> NO_GRADUAL=OUT (s=0.000)
+  [LNG-12] Drug decriminalisation (10 nodes): FULL=IN (s=0.716) -> NO_GRADUAL=OUT (s=0.000)
