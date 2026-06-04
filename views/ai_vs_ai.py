@@ -13,6 +13,7 @@ import os
 import time
 
 import streamlit as st
+import streamlit.components.v1 as components
 import httpx
 from groq import Groq
 
@@ -291,6 +292,69 @@ def _reset_debate():
             del st.session_state[k]
 
 
+def _render_final_winner(engine, prov_a, prov_b):
+    if not st.session_state.get("messages"):
+        st.info("Debate concluded before any moves were made.")
+        return
+
+    starter = st.session_state.get("aivai_starter", "Side A")
+    other = "Side B" if starter == "Side A" else "Side A"
+    saved_prov_a = st.session_state.get("aivai_prov_a", prov_a)
+    saved_prov_b = st.session_state.get("aivai_prov_b", prov_b)
+    starter_prov = saved_prov_a if starter == "Side A" else saved_prov_b
+    other_prov = saved_prov_b if starter == "Side A" else saved_prov_a
+
+    conceded = next(
+        (m for m in reversed(st.session_state.messages)
+         if m.get("id") == "Concession"),
+        None,
+    )
+    if conceded:
+        winner_side = other if conceded.get("side") == starter else starter
+        winner_provider = saved_prov_a if winner_side == "Side A" else saved_prov_b
+        winner_stance = "FOR" if winner_side == starter else "AGAINST"
+        result_text = f"{conceded.get('side')} conceded."
+    else:
+        main_score = engine.scores.get("Msg_1", 0.0)
+        main_status = engine.statuses.get("Msg_1", "OUT")
+        if main_status == "IN":
+            winner_side = starter
+            winner_provider = starter_prov
+            winner_stance = "FOR"
+            result_text = "The starter's main claim survived."
+        else:
+            winner_side = other
+            winner_provider = other_prov
+            winner_stance = "AGAINST"
+            result_text = "The starter's main claim was defeated."
+        result_text += f" Final main-claim status: {main_status}, score: {main_score:.3f}."
+
+    st.markdown(
+        f"""
+        <div class="victory-box" style="background-color:rgba(88,101,242,0.16);
+             border:2px solid #5865F2;color:inherit;">
+            Winner: {winner_side} - {winner_provider} ({winner_stance})<br>
+            <span style="font-size:14px;font-weight:500;">{result_text}</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _scroll_to_final_winner():
+    components.html(
+        """
+        <script>
+        const target = window.parent.document.getElementById("aivai-final-winner");
+        if (target) {
+            target.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+        </script>
+        """,
+        height=0,
+    )
+
+
 def _run_one_turn():
     """Generate the next move. Returns True if a move was made."""
     if st.session_state.battle_over:
@@ -539,6 +603,8 @@ def render_ai_vs_ai() -> None:
         )
         st.markdown("### Live Debate Momentum")
         render_momentum_bar(st.session_state.messages, engine.statuses, engine.nodes)
+        if st.session_state.battle_over:
+            _render_final_winner(engine, prov_a, prov_b)
 
     st.divider()
 
@@ -605,7 +671,9 @@ def render_ai_vs_ai() -> None:
     st.divider()
 
     if st.session_state.battle_over:
-        st.success("Debate concluded.")
+        st.markdown('<div id="aivai-final-winner"></div>', unsafe_allow_html=True)
+        _render_final_winner(engine, prov_a, prov_b)
+        _scroll_to_final_winner()
         if st.button("Start New Debate", type="primary",
                      use_container_width=True):
             _reset_debate()
@@ -625,7 +693,7 @@ def render_ai_vs_ai() -> None:
         with c2:
             if st.button("Step (next move)", use_container_width=True):
                 made = _run_one_turn()
-                if made:
+                if made or st.session_state.battle_over:
                     st.rerun()
         with c3:
             if st.button("End Debate", use_container_width=True):
@@ -636,7 +704,7 @@ def render_ai_vs_ai() -> None:
         if st.session_state.aivai_running:
             time.sleep(0.3)
             made = _run_one_turn()
-            if made:
+            if made or st.session_state.battle_over:
                 st.rerun()
 
     if engine.nodes:
