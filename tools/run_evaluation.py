@@ -40,7 +40,15 @@ os.makedirs(RESULTS_DIR, exist_ok=True)
 # =============================================================== run
 
 def run_scenario(scenario: Dict) -> Dict:
-    """Build an engine for one scenario and return its verdict + diagnostics."""
+    """Build an engine for one scenario and return its verdict + diagnostics.
+
+    Returns the verdict from three semantics on the same input:
+      * `engine`            -- my bipolar gradual semantics (k = 0.5)
+      * `dung_grounded`     -- classical Dung grounded extension
+      * `hcat`              -- Besnard-Hunter h-categorizer
+    Each is independently compared against the human-expert label so
+    the Chapter 5 baseline table can be regenerated from this script.
+    """
     engine = AcademicLogicEngine()
     for (mid, text, weight, tag) in scenario["arguments"]:
         engine.add_argument(mid, text, weight, tag)
@@ -54,19 +62,36 @@ def run_scenario(scenario: Dict) -> Dict:
     root_score = engine.scores.get(root_id, 0.0)
     root_status = engine.statuses.get(root_id, "OUT")
 
+    # Classical Dung grounded extension. Root is IN iff it sits in
+    # the least fixed point of the characteristic function.
+    grounded_S = engine.grounded_extension()
+    dung_status = "IN" if root_id in grounded_S else "OUT"
+
+    # Besnard-Hunter h-categorizer. Threshold at 0.5 to recover a
+    # binary IN/OUT verdict on the same root argument.
+    hcat_scores = engine.h_categorizer()
+    hcat_score = hcat_scores.get(root_id, 0.0)
+    hcat_status = "IN" if hcat_score >= 0.5 else "OUT"
+
+    expected = scenario["expected"]
     return {
-        "id":           scenario["id"],
-        "name":         scenario["name"],
-        "topology":     scenario["topology"],
-        "n_args":       len(scenario["arguments"]),
-        "n_attacks":    len(scenario["attacks"]),
-        "n_supports":   len(scenario["supports"]),
-        "expected":     scenario["expected"],
-        "engine":       root_status,
-        "score":        round(root_score, 3),
-        "agreement":    "Y" if scenario["expected"] == root_status else "N",
-        "iters":        engine.convergence_info()["iterations_until_stable"],
-        "reasoning":    scenario["reasoning"],
+        "id":             scenario["id"],
+        "name":           scenario["name"],
+        "topology":       scenario["topology"],
+        "n_args":         len(scenario["arguments"]),
+        "n_attacks":      len(scenario["attacks"]),
+        "n_supports":     len(scenario["supports"]),
+        "expected":       expected,
+        "engine":         root_status,
+        "score":          round(root_score, 3),
+        "agreement":      "Y" if expected == root_status else "N",
+        "dung":           dung_status,
+        "dung_agreement": "Y" if expected == dung_status else "N",
+        "hcat":           hcat_status,
+        "hcat_score":     round(hcat_score, 3),
+        "hcat_agreement": "Y" if expected == hcat_status else "N",
+        "iters":          engine.convergence_info()["iterations_until_stable"],
+        "reasoning":      scenario["reasoning"],
     }
 
 

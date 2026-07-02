@@ -74,6 +74,9 @@ if "mode" not in st.session_state:
 if "theme_mode" not in st.session_state:
     st.session_state.theme_mode = "Dark"
 
+# Light/Dark toggle. The Light theme uses the BRIGHT_THEME_CSS overrides
+# in views/_styles.py; if any element looks off in Light mode, the rules
+# to tweak live in that file.
 theme_label = st.sidebar.radio(
     "Display Mode:",
     ["🌙 Dark", "☀️ Light"],

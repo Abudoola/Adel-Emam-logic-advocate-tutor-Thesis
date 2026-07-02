@@ -9,11 +9,13 @@ hint_mdp, the shared CSS/widgets live in views/_styles, and the
 Defense Mode panel lives in views/engine_inspector.
 """
 from __future__ import annotations
+import html
 import json
 import os
 import time
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from logic_engine import AcademicLogicEngine, VALID_VALUE_TAGS
 from ai_agent import (
@@ -24,6 +26,8 @@ from ai_agent import (
 )
 from views._styles import (
     inject_css,
+    inject_enter_to_send,
+    inject_logic_map_fullscreen_white,
     render_argument_bubble,
     render_momentum_bar,
     render_logic_graph,
@@ -57,6 +61,7 @@ def _init_session_state() -> None:
     st.session_state.detected_premise  = None   # implicit premise card state
     st.session_state.attach_premise    = False  # whether to add it on submit
     st.session_state.spell_typos       = None   # typo list from last check
+    st.session_state.composer_notice   = None
     st.session_state.widget_interaction = False
 
 def _record_interaction() -> None:
@@ -239,29 +244,89 @@ def _render_top_dashboard() -> None:
                 st.rerun()
 
 def _render_chat_history() -> None:
-    container = st.container(height=400)
-    with container:
-        for msg in st.session_state.messages:
-            engine_score = st.session_state.engine.scores.get(msg["id"], 1.0)
-            is_concession = (msg.get("id") == "Concession")
-            with st.container():
-                render_argument_bubble(
-                    mid=msg["id"],
-                    content=msg["content"],
-                    side=msg["side"],
-                    weight=msg.get("weight", 0),
-                    action=msg.get("action", ""),
-                    target=msg.get("target"),
-                    value_tag=msg.get("value_tag", "Logic"),
-                    score=engine_score,
-                    is_concession=is_concession,
-                )
-                if msg.get("media_path") and os.path.exists(msg["media_path"]):
-                    if msg["media_type"].startswith("image"):
-                        st.image(msg["media_path"], width=200)
-                    elif msg["media_type"].startswith("video"):
-                        st.video(msg["media_path"])
-            st.write("")
+    for msg in st.session_state.messages:
+        engine_score = st.session_state.engine.scores.get(msg["id"], 1.0)
+        is_concession = (msg.get("id") == "Concession")
+        with st.container():
+            render_argument_bubble(
+                mid=msg["id"],
+                content=msg["content"],
+                side=msg["side"],
+                weight=msg.get("weight", 0),
+                action=msg.get("action", ""),
+                target=msg.get("target"),
+                value_tag=msg.get("value_tag", "Logic"),
+                score=engine_score,
+                is_concession=is_concession,
+            )
+            if msg.get("media_path") and os.path.exists(msg["media_path"]):
+                if msg["media_type"].startswith("image"):
+                    st.image(msg["media_path"], width=200)
+                elif msg["media_type"].startswith("video"):
+                    st.video(msg["media_path"])
+        st.write("")
+
+
+def _render_chat_workspace(active_side):
+    text_input, audio_file, uploaded_file, submitted = "", None, None, False
+    action, target, value_tag = "Attack", "None", "Fact"
+    enemy_msgs = {}
+
+    # No visible border around the chat thread - messages flow on the page
+    # like Claude's chat. Height matches the map container next door (600px)
+    # so the two columns end at the same visual level.
+    chat_panel = st.container(height=600)
+    with chat_panel:
+        _render_chat_history()
+
+    if not st.session_state.battle_over:
+        _, target, action, value_tag, enemy_msgs = _render_move_controls(active_side)
+        turn_key = st.session_state.msg_counter
+        text_input, audio_file, uploaded_file, submitted = _render_composer(
+            turn_key, active_side=active_side, enemy_msgs=enemy_msgs
+        )
+        # First-move prompt sits BELOW the composer so the empty-state hint
+        # does not push the composer further down the page.
+        if not st.session_state.engine.nodes:
+            st.info(f"🟢 {active_side} goes first. Post your Main Claim.")
+
+    return text_input, audio_file, uploaded_file, submitted, target, action, value_tag
+
+
+def _render_logic_map_panel() -> None:
+    try:
+        panel = st.container(border=True)
+    except TypeError:
+        panel = st.container()
+
+    with panel:
+        st.markdown("##### Live Logic Map")
+        st.caption(
+            "Solid red = attack · dashed blue = support · "
+            "blue node = Side A · red node = Side B/AI · "
+            "green border = IN · red border = OUT"
+        )
+        if st.session_state.engine.nodes:
+            st.graphviz_chart(
+                render_logic_graph(
+                    st.session_state.engine,
+                    st.session_state.messages,
+                ),
+                use_container_width=True,
+            )
+        else:
+            st.caption("The map appears once arguments are added.")
+
+
+def _render_thread_header() -> None:
+    mode_label = html.escape(str(st.session_state.mode[2:]))
+    st.markdown(
+        f'<div class="lat-thread-header">'
+        f'<h1>&#9878;&#65039; Logic Advocate: {mode_label}</h1>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
 
 def _render_move_controls(active_side: str):
     engine = st.session_state.engine
@@ -270,7 +335,9 @@ def _render_move_controls(active_side: str):
     enemy_msgs = {m["id"]: m["content"] for m in st.session_state.messages
                   if m["side"] != active_side}
     if not engine.nodes:
-        st.info(f"🟢 {active_side} goes first. Post your Main Claim.")
+        # The friendlier "Side A goes first" prompt is rendered AFTER the
+        # composer by _render_chat_workspace, so it appears below the
+        # textbox instead of above it.
         value_tag = st.selectbox("Value Tag:", VALID_VALUE_TAGS, key="val_first", on_change=_record_interaction)
         return ("Main Claim", "None", "Attack", value_tag, enemy_msgs)
     turn_idx = st.session_state.msg_counter
@@ -492,9 +559,12 @@ def _render_composer(turn_key):
                 )
     with col_input:
         with st.form(key=f"composer_form_{turn_key}", clear_on_submit=False):
-            text_input = st.text_input(
-                "msg", placeholder="Type a message",
-                key=f"desktop_text_{turn_key}", label_visibility="collapsed",
+            text_input = st.text_area(
+                "msg",
+                placeholder="Type a message",
+                key=f"desktop_text_{turn_key}",
+                label_visibility="collapsed",
+                height=118,
             )
             submitted = st.form_submit_button(
                 "Send", use_container_width=True, type="primary",
@@ -507,6 +577,834 @@ def _render_composer(turn_key):
         )
     st.session_state.widget_interaction = False
     return text_input, audio_file, uploaded_file, submitted
+
+
+def _render_composer(turn_key):
+    uploaded_file, audio_file = None, None
+    with st.form(key=f"composer_form_{turn_key}", clear_on_submit=False):
+        col_attach, col_input, col_send = st.columns([0.7, 8.7, 1.2])
+        with col_attach:
+            with st.popover("+", use_container_width=True):
+                uploaded_file = st.file_uploader(
+                    "Attach evidence",
+                    type=["png", "jpg", "jpeg", "mp4"],
+                    key=f"local_file_{turn_key}",
+                )
+                if hasattr(st, "audio_input"):
+                    audio_file = st.audio_input(
+                        "Record voice",
+                        key=f"local_audio_{turn_key}",
+                    )
+                elif hasattr(st, "experimental_audio_input"):
+                    audio_file = st.experimental_audio_input(
+                        "Record voice",
+                        key=f"local_audio_{turn_key}",
+                    )
+        with col_input:
+            text_input = st.text_area(
+                "msg",
+                placeholder="Type a message",
+                key=f"desktop_text_{turn_key}",
+                label_visibility="collapsed",
+                height=118,
+            )
+        with col_send:
+            st.write("")
+            submitted = st.form_submit_button(
+                "Send",
+                use_container_width=True,
+                type="primary",
+            )
+    st.session_state.widget_interaction = False
+    return text_input, audio_file, uploaded_file, submitted
+
+
+def _submit_on_enter_script() -> None:
+    components.html(
+        """
+        <script>
+        (() => {
+            const doc = window.parent.document;
+
+            const findSendButton = () => {
+                const buttons = Array.from(doc.querySelectorAll("button"));
+                return buttons.reverse().find(
+                    (button) => button.innerText.trim() === "Send"
+                );
+            };
+
+            const bindComposer = () => {
+                const textareas = Array.from(doc.querySelectorAll("textarea"));
+                const textarea = textareas[textareas.length - 1];
+                const send = findSendButton();
+                if (!textarea || !send || textarea.dataset.latEnterSubmit === "true") {
+                    return false;
+                }
+
+                textarea.dataset.latEnterSubmit = "true";
+                textarea.addEventListener("keydown", (event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const currentSend = findSendButton();
+                        if (currentSend && !currentSend.disabled) {
+                            currentSend.click();
+                        }
+                    }
+                }, true);
+                return true;
+            };
+
+            let attempts = 0;
+            const timer = setInterval(() => {
+                attempts += 1;
+                if (bindComposer() || attempts > 40) {
+                    clearInterval(timer);
+                }
+            }, 100);
+        })();
+        </script>
+        """,
+        height=0,
+    )
+
+
+def _reveal_ai_text_in_composer(content: str,
+                                seconds_per_word: float = 0.055,
+                                max_seconds: float = 5.0) -> None:
+    words = content.split()
+    if not words:
+        return
+    delay_ms = int(min(seconds_per_word, max_seconds / max(1, len(words))) * 1000)
+    duration = (delay_ms / 1000) * len(words)
+    components.html(
+        f"""
+        <script>
+        const words = {json.dumps(words)};
+        const delay = {delay_ms};
+        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        (async () => {{
+            const doc = window.parent.document;
+            const textareas = Array.from(doc.querySelectorAll("textarea"));
+            const textarea = textareas[textareas.length - 1];
+            if (!textarea) return;
+            textarea.focus();
+            textarea.value = "";
+            textarea.dispatchEvent(new Event("input", {{ bubbles: true }}));
+            for (let i = 1; i <= words.length; i++) {{
+                textarea.value = words.slice(0, i).join(" ") + (i < words.length ? " |" : "");
+                textarea.dispatchEvent(new Event("input", {{ bubbles: true }}));
+                await sleep(delay);
+            }}
+        }})();
+        </script>
+        """,
+        height=0,
+    )
+    time.sleep(duration + 0.15)
+
+
+def _render_compact_composer_tools(active_side, enemy_msgs, turn_key):
+    uploaded_file, audio_file = None, None
+    with st.popover("+", use_container_width=True):
+        uploaded_file = st.file_uploader(
+            "Attach evidence",
+            type=["png", "jpg", "jpeg", "mp4"],
+            key=f"local_file_{turn_key}",
+        )
+        if hasattr(st, "audio_input"):
+            audio_file = st.audio_input(
+                "Record voice",
+                key=f"local_audio_{turn_key}",
+            )
+        elif hasattr(st, "experimental_audio_input"):
+            audio_file = st.experimental_audio_input(
+                "Record voice",
+                key=f"local_audio_{turn_key}",
+            )
+
+    if enemy_msgs and st.button("💡", use_container_width=True,
+                                help="Get hint",
+                                key=f"compact_hint_{turn_key}"):
+        own_msgs = [m for m in st.session_state.messages
+                    if m["side"] == active_side]
+        own_main_claim = own_msgs[0]["content"] if own_msgs else ""
+        last_enemy_msg = list(enemy_msgs.values())[-1]
+        with st.spinner("Strategising..."):
+            result = generate_hint_v2(
+                engine=st.session_state.engine,
+                messages=st.session_state.messages,
+                learner_side=active_side,
+                recent_hints=st.session_state.hints_used_recent,
+                enemy_argument=last_enemy_msg,
+                own_main_claim=own_main_claim,
+            )
+        st.session_state.last_hint = result
+        st.session_state.hints_used_recent += 1
+        st.rerun()
+
+    if st.button("🔍", use_container_width=True,
+                 help="Check assumptions",
+                 key=f"compact_assumptions_{turn_key}"):
+        draft = st.session_state.get(f"desktop_text_{turn_key}", "").strip()
+        if not draft:
+            st.warning("Type something first.")
+        else:
+            recent = st.session_state.messages[-4:] if st.session_state.messages else None
+            with st.spinner("Looking for an unstated premise..."):
+                st.session_state.detected_premise = detect_implicit_premise(
+                    draft, recent_messages=recent
+                )
+            st.session_state.attach_premise = False
+            st.rerun()
+
+    import spellcheck
+    if st.button("Spell", use_container_width=True,
+                 disabled=not spellcheck.is_available(),
+                 help="Check spelling",
+                 key=f"compact_spelling_{turn_key}"):
+        draft = st.session_state.get(f"desktop_text_{turn_key}", "").strip()
+        if not draft:
+            st.warning("Type something first.")
+        else:
+            st.session_state.spell_typos = spellcheck.find_typos(draft)
+            st.session_state.spell_checked_text = draft
+            st.rerun()
+
+    return uploaded_file, audio_file
+
+
+def _render_composer(turn_key, active_side=None, enemy_msgs=None):
+    enemy_msgs = enemy_msgs or {}
+    uploaded_file, audio_file = None, None
+    col_add, col_hint, col_assume, col_spell, col_input, col_send = st.columns(
+        [0.55, 0.65, 0.65, 0.65, 7.7, 1.15]
+    )
+    with col_add:
+        with st.popover("+", use_container_width=True):
+            uploaded_file = st.file_uploader(
+                "Attach evidence",
+                type=["png", "jpg", "jpeg", "mp4"],
+                key=f"local_file_{turn_key}",
+            )
+            if hasattr(st, "audio_input"):
+                audio_file = st.audio_input(
+                    "Record voice",
+                    key=f"local_audio_{turn_key}",
+                )
+            elif hasattr(st, "experimental_audio_input"):
+                audio_file = st.experimental_audio_input(
+                    "Record voice",
+                    key=f"local_audio_{turn_key}",
+                )
+    with col_hint:
+        if enemy_msgs and st.button("Hint", use_container_width=True,
+                                    help="Get hint",
+                                    key=f"compact_hint_{turn_key}"):
+            own_msgs = [m for m in st.session_state.messages
+                        if m["side"] == active_side]
+            own_main_claim = own_msgs[0]["content"] if own_msgs else ""
+            last_enemy_msg = list(enemy_msgs.values())[-1]
+            with st.spinner("Strategising..."):
+                result = generate_hint_v2(
+                    engine=st.session_state.engine,
+                    messages=st.session_state.messages,
+                    learner_side=active_side,
+                    recent_hints=st.session_state.hints_used_recent,
+                    enemy_argument=last_enemy_msg,
+                    own_main_claim=own_main_claim,
+                )
+            st.session_state.last_hint = result
+            st.session_state.hints_used_recent += 1
+            st.rerun()
+        elif not enemy_msgs:
+            st.button("Hint", use_container_width=True, disabled=True,
+                      help="Get hint", key=f"compact_hint_disabled_{turn_key}")
+    with col_assume:
+        if st.button("Assumptions", use_container_width=True,
+                     help="Check assumptions",
+                     key=f"compact_assumptions_{turn_key}"):
+            draft = st.session_state.get(f"desktop_text_{turn_key}", "").strip()
+            if not draft:
+                st.warning("Type something first.")
+            else:
+                recent = st.session_state.messages[-4:] if st.session_state.messages else None
+                with st.spinner("Looking for an unstated premise..."):
+                    st.session_state.detected_premise = detect_implicit_premise(
+                        draft, recent_messages=recent
+                    )
+                st.session_state.attach_premise = False
+                st.rerun()
+    with col_spell:
+        import spellcheck
+        if st.button("Spell", use_container_width=True,
+                     disabled=not spellcheck.is_available(),
+                     help="Check spelling",
+                     key=f"compact_spelling_{turn_key}"):
+            draft = st.session_state.get(f"desktop_text_{turn_key}", "").strip()
+            if not draft:
+                st.warning("Type something first.")
+            else:
+                st.session_state.spell_typos = spellcheck.find_typos(draft)
+                st.session_state.spell_checked_text = draft
+                st.rerun()
+    with col_input:
+        text_input = st.text_area(
+            "msg",
+            placeholder="Type a message",
+            key=f"desktop_text_{turn_key}",
+            label_visibility="collapsed",
+            height=118,
+        )
+    with col_send:
+        st.write("")
+        submitted = st.button(
+            "Send",
+            use_container_width=True,
+            type="primary",
+            key=f"composer_send_{turn_key}",
+        )
+    _submit_on_enter_script()
+    st.session_state.widget_interaction = False
+    return text_input, audio_file, uploaded_file, submitted
+
+
+def _render_composer(turn_key, active_side=None, enemy_msgs=None):
+    enemy_msgs = enemy_msgs or {}
+    uploaded_file, audio_file = None, None
+    feedback_slot = st.empty()
+
+    input_col, send_col = st.columns([8.8, 1.2])
+    with input_col:
+        text_input = st.text_area(
+            "msg",
+            placeholder="Type a message",
+            key=f"desktop_text_{turn_key}",
+            label_visibility="collapsed",
+            height=118,
+        )
+    with send_col:
+        st.write("")
+        submitted = st.button(
+            "Send",
+            use_container_width=True,
+            type="primary",
+            key=f"composer_send_{turn_key}",
+        )
+
+
+def _render_hint_result() -> None:
+    h = st.session_state.get("last_hint")
+    if not h:
+        return
+    st.markdown(
+        f'<div class="hint-card">'
+        f'<div class="hint-strategy">STRATEGY · {html.escape(str(h["action"]))}</div>'
+        f'<div class="hint-body">{html.escape(str(h["hint"]))}</div>'
+        f'<div class="hint-debug">MDP state: {html.escape(str(h["state"]))}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _render_premise_result(turn_key) -> None:
+    dp = st.session_state.get("detected_premise")
+    if dp is None:
+        return
+
+    if not dp.get("found"):
+        st.markdown(
+            f'<div class="hint-card" style="border-left-color:#9aa0a6;">'
+            f'<div class="hint-strategy" style="background:#5f6368;">'
+            f'IMPLICIT PREMISE · NONE FOUND</div>'
+            f'<div class="hint-body">{html.escape(str(dp.get("justification", "")))}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    conf_pct = int(float(dp.get("confidence", 0.0)) * 100)
+    premise = html.escape(str(dp.get("premise", "")))
+    justification = html.escape(str(dp.get("justification", "")))
+    st.markdown(
+        f'<div class="hint-card" style="border-left-color:#ffb74d;">'
+        f'<div class="hint-strategy" style="background:#ef6c00;">'
+        f'IMPLICIT PREMISE · CONFIDENCE {conf_pct}%</div>'
+        f'<div class="hint-body"><b>You are assuming:</b> “{premise}”</div>'
+        f'<div class="hint-debug">Why: {justification}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    st.session_state.attach_premise = st.checkbox(
+        "Add this premise as a SUPPORT to my argument when I submit",
+        value=st.session_state.attach_premise,
+        key=f"compact_attach_premise_{turn_key}",
+        help=(
+            "When checked, your move will create two nodes: your main "
+            "argument plus this premise as a supporter of it."
+        ),
+    )
+
+
+def _render_spellcheck_result(turn_key) -> None:
+    import spellcheck
+
+    typos = st.session_state.get("spell_typos")
+    if typos is None:
+        return
+
+    if not typos:
+        st.markdown(
+            '<div class="hint-card" style="border-left-color:#4caf50;">'
+            '<div class="hint-strategy" style="background:#2e7d32;">'
+            'SPELLING · CLEAN</div>'
+            '<div class="hint-body">No likely typos detected. Good to submit.</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    n = len(typos)
+    st.markdown(
+        f'<div class="hint-card" style="border-left-color:#ff9800;">'
+        f'<div class="hint-strategy" style="background:#e65100;">'
+        f'SPELLING · {n} POSSIBLE TYPO{"S" if n != 1 else ""}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    for t in typos:
+        suggestions = t["suggestions"] or ["(no suggestion)"]
+        st.markdown(
+            f"- **{html.escape(str(t['word']))}** → "
+            f"{', '.join(f'`{html.escape(str(s))}`' for s in suggestions[:3])}"
+        )
+
+    have_suggestions = any(t["suggestions"] for t in typos)
+    c_fix, c_ignore = st.columns(2)
+    with c_fix:
+        if st.button(
+            "Fix all",
+            use_container_width=True,
+            type="primary",
+            disabled=not have_suggestions,
+            key=f"compact_fix_spell_{turn_key}",
+        ):
+            draft_key = f"desktop_text_{turn_key}"
+            pending_key = f"pending_desktop_text_{turn_key}"
+            corrections = {
+                t["word"]: t["suggestions"][0]
+                for t in typos if t["suggestions"]
+            }
+            current = st.session_state.get(draft_key, "")
+            st.session_state[pending_key] = spellcheck.apply_corrections(
+                current, corrections
+            )
+            st.session_state.spell_typos = None
+            st.toast(f"Replaced {len(corrections)} typo"
+                     f"{'s' if len(corrections) != 1 else ''}")
+            st.rerun()
+    with c_ignore:
+        if st.button(
+            "Ignore",
+            use_container_width=True,
+            key=f"compact_ignore_spell_{turn_key}",
+        ):
+            st.session_state.spell_typos = None
+            st.rerun()
+
+def _render_composer(turn_key, active_side=None, enemy_msgs=None):
+    enemy_msgs = enemy_msgs or {}
+    uploaded_file, audio_file = None, None
+    feedback_slot = st.empty()
+
+    input_col, send_col = st.columns([8.8, 1.2])
+    with input_col:
+        text_input = st.text_area(
+            "msg",
+            placeholder="Type a message",
+            key=f"desktop_text_{turn_key}",
+            label_visibility="collapsed",
+            height=118,
+        )
+    with send_col:
+        st.write("")
+        submitted = st.button(
+            "Send",
+            use_container_width=True,
+            type="primary",
+            key=f"composer_send_{turn_key}",
+        )
+
+    tool_cols = st.columns([1.0, 1.6, 1.6, 1.4, 4.4])
+    with tool_cols[0]:
+        with st.popover("+", use_container_width=True):
+            uploaded_file = st.file_uploader(
+                "Attach evidence",
+                type=["png", "jpg", "jpeg", "mp4"],
+                key=f"local_file_{turn_key}",
+            )
+            if hasattr(st, "audio_input"):
+                audio_file = st.audio_input(
+                    "Record voice",
+                    key=f"local_audio_{turn_key}",
+                )
+            elif hasattr(st, "experimental_audio_input"):
+                audio_file = st.experimental_audio_input(
+                    "Record voice",
+                    key=f"local_audio_{turn_key}",
+                )
+
+    with tool_cols[1]:
+        hint_clicked = st.button(
+            "Hint",
+            use_container_width=True,
+            help="Get hint",
+            key=f"compact_hint_{turn_key}",
+        )
+    with tool_cols[2]:
+        ask_clicked = st.button(
+            "Assumptions",
+            use_container_width=True,
+            help="Check assumptions",
+            key=f"compact_assumptions_{turn_key}",
+        )
+    with tool_cols[3]:
+        import spellcheck
+        spell_clicked = st.button(
+            "Spell",
+            use_container_width=True,
+            disabled=not spellcheck.is_available(),
+            help="Check spelling",
+            key=f"compact_spelling_{turn_key}",
+        )
+
+    if hint_clicked or ask_clicked or spell_clicked:
+        draft = st.session_state.get(f"desktop_text_{turn_key}", "").strip()
+
+        if hint_clicked:
+            if not enemy_msgs:
+                st.session_state.composer_notice = (
+                    "Post the first argument first. Hints become useful once "
+                    "there is an opposing message to answer."
+                )
+            else:
+                st.session_state.composer_notice = None
+                own_msgs = [m for m in st.session_state.messages
+                            if m["side"] == active_side]
+                own_main_claim = own_msgs[0]["content"] if own_msgs else ""
+                last_enemy_msg = list(enemy_msgs.values())[-1]
+                with st.spinner("Strategising..."):
+                    st.session_state.last_hint = generate_hint_v2(
+                        engine=st.session_state.engine,
+                        messages=st.session_state.messages,
+                        learner_side=active_side,
+                        recent_hints=st.session_state.hints_used_recent,
+                        enemy_argument=last_enemy_msg,
+                        own_main_claim=own_main_claim,
+                    )
+                st.session_state.hints_used_recent += 1
+
+        if ask_clicked:
+            if not draft:
+                st.session_state.composer_notice = "Type something first."
+            else:
+                st.session_state.composer_notice = None
+                recent = st.session_state.messages[-4:] if st.session_state.messages else None
+                with st.spinner("Looking for an unstated premise..."):
+                    st.session_state.detected_premise = detect_implicit_premise(
+                        draft, recent_messages=recent
+                    )
+                st.session_state.attach_premise = False
+
+        if spell_clicked:
+            if not draft:
+                st.session_state.composer_notice = "Type something first."
+            else:
+                st.session_state.composer_notice = None
+                st.session_state.spell_typos = spellcheck.find_typos(draft)
+                st.session_state.spell_checked_text = draft
+
+    with feedback_slot.container():
+        if st.session_state.get("composer_notice"):
+            st.info(st.session_state.composer_notice)
+        _render_hint_result()
+        _render_premise_result(turn_key)
+        _render_spellcheck_result(turn_key)
+
+    _submit_on_enter_script()
+    st.session_state.widget_interaction = False
+    return text_input, audio_file, uploaded_file, submitted
+
+
+def _render_composer(turn_key, active_side=None, enemy_msgs=None):
+    enemy_msgs = enemy_msgs or {}
+    uploaded_file, audio_file = None, None
+    draft_key = f"desktop_text_{turn_key}"
+    pending_key = f"pending_desktop_text_{turn_key}"
+
+    if pending_key in st.session_state:
+        st.session_state[draft_key] = st.session_state.pop(pending_key)
+
+    try:
+        composer_box = st.container(border=True)
+    except TypeError:
+        composer_box = st.container()
+
+    with composer_box:
+        feedback_slot = st.empty()
+
+        input_col, send_col = st.columns([8.8, 1.2])
+        with input_col:
+            text_input = st.text_area(
+                "msg",
+                placeholder="Type a message",
+                key=draft_key,
+                label_visibility="collapsed",
+                height=132,
+            )
+        with send_col:
+            submitted = st.button(
+                "Send",
+                use_container_width=True,
+                type="primary",
+                key=f"composer_send_{turn_key}",
+            )
+
+        tool_cols = st.columns([1.0, 1.6, 1.6, 1.4, 4.4])
+        with tool_cols[0]:
+            with st.popover("+", use_container_width=True):
+                uploaded_file = st.file_uploader(
+                    "Attach evidence",
+                    type=["png", "jpg", "jpeg", "mp4"],
+                    key=f"local_file_{turn_key}",
+                )
+                if hasattr(st, "audio_input"):
+                    audio_file = st.audio_input(
+                        "Record voice",
+                        key=f"local_audio_{turn_key}",
+                    )
+                elif hasattr(st, "experimental_audio_input"):
+                    audio_file = st.experimental_audio_input(
+                        "Record voice",
+                        key=f"local_audio_{turn_key}",
+                    )
+
+        with tool_cols[1]:
+            hint_clicked = st.button(
+                "Hint",
+                use_container_width=True,
+                help="Get hint",
+                key=f"compact_hint_{turn_key}",
+            )
+        with tool_cols[2]:
+            ask_clicked = st.button(
+                "Assumptions",
+                use_container_width=True,
+                help="Check assumptions",
+                key=f"compact_assumptions_{turn_key}",
+            )
+        with tool_cols[3]:
+            import spellcheck
+            spell_clicked = st.button(
+                "Spell",
+                use_container_width=True,
+                disabled=not spellcheck.is_available(),
+                help="Check spelling",
+                key=f"compact_spelling_{turn_key}",
+            )
+
+        if hint_clicked or ask_clicked or spell_clicked:
+            draft = st.session_state.get(draft_key, "").strip()
+
+            if hint_clicked:
+                if not enemy_msgs:
+                    st.session_state.composer_notice = (
+                        "Post the first argument first. Hints become useful "
+                        "once there is an opposing message to answer."
+                    )
+                else:
+                    st.session_state.composer_notice = None
+                    own_msgs = [m for m in st.session_state.messages
+                                if m["side"] == active_side]
+                    own_main_claim = own_msgs[0]["content"] if own_msgs else ""
+                    last_enemy_msg = list(enemy_msgs.values())[-1]
+                    with st.spinner("Strategising..."):
+                        st.session_state.last_hint = generate_hint_v2(
+                            engine=st.session_state.engine,
+                            messages=st.session_state.messages,
+                            learner_side=active_side,
+                            recent_hints=st.session_state.hints_used_recent,
+                            enemy_argument=last_enemy_msg,
+                            own_main_claim=own_main_claim,
+                        )
+                    st.session_state.hints_used_recent += 1
+
+            if ask_clicked:
+                if not draft:
+                    st.session_state.composer_notice = "Type something first."
+                else:
+                    st.session_state.composer_notice = None
+                    recent = st.session_state.messages[-4:] if st.session_state.messages else None
+                    with st.spinner("Looking for an unstated premise..."):
+                        st.session_state.detected_premise = detect_implicit_premise(
+                            draft, recent_messages=recent
+                        )
+                    st.session_state.attach_premise = False
+
+            if spell_clicked:
+                if not draft:
+                    st.session_state.composer_notice = "Type something first."
+                else:
+                    st.session_state.composer_notice = None
+                    st.session_state.spell_typos = spellcheck.find_typos(draft)
+                    st.session_state.spell_checked_text = draft
+
+        with feedback_slot.container():
+            if st.session_state.get("composer_notice"):
+                st.info(st.session_state.composer_notice)
+            _render_hint_result()
+            _render_premise_result(turn_key)
+            _render_spellcheck_result(turn_key)
+
+    _submit_on_enter_script()
+    st.session_state.widget_interaction = False
+    return text_input, audio_file, uploaded_file, submitted
+
+
+def _render_composer(turn_key, active_side=None, enemy_msgs=None):
+    enemy_msgs = enemy_msgs or {}
+    uploaded_file, audio_file = None, None
+    draft_key = f"desktop_text_{turn_key}"
+    pending_key = f"pending_desktop_text_{turn_key}"
+
+    if pending_key in st.session_state:
+        st.session_state[draft_key] = st.session_state.pop(pending_key)
+
+    # Marker for the Codex-polish CSS adjacent-sibling selector
+    # `.lat-composer + div` in _styles.py.
+    st.markdown('<div class="lat-composer"></div>', unsafe_allow_html=True)
+    try:
+        composer_box = st.container(border=True)
+    except TypeError:
+        composer_box = st.container()
+
+    with composer_box:
+        feedback_slot = st.empty()
+
+        text_input = st.text_area(
+            "msg",
+            placeholder="Type a message",
+            key=draft_key,
+            label_visibility="collapsed",
+            height=118,
+        )
+
+        control_cols = st.columns([0.85, 1.45, 1.45, 1.2, 4.6, 1.15])
+        with control_cols[0]:
+            with st.popover("+", use_container_width=True):
+                uploaded_file = st.file_uploader(
+                    "Attach evidence",
+                    type=["png", "jpg", "jpeg", "mp4"],
+                    key=f"local_file_{turn_key}",
+                )
+                if hasattr(st, "audio_input"):
+                    audio_file = st.audio_input(
+                        "Record voice",
+                        key=f"local_audio_{turn_key}",
+                    )
+                elif hasattr(st, "experimental_audio_input"):
+                    audio_file = st.experimental_audio_input(
+                        "Record voice",
+                        key=f"local_audio_{turn_key}",
+                    )
+        with control_cols[1]:
+            hint_clicked = st.button(
+                "Hint",
+                use_container_width=True,
+                help="Get hint",
+                key=f"compact_hint_{turn_key}",
+            )
+        with control_cols[2]:
+            ask_clicked = st.button(
+                "Assumptions",
+                use_container_width=True,
+                help="Check assumptions",
+                key=f"compact_assumptions_{turn_key}",
+            )
+        with control_cols[3]:
+            import spellcheck
+            spell_clicked = st.button(
+                "Spell",
+                use_container_width=True,
+                disabled=not spellcheck.is_available(),
+                help="Check spelling",
+                key=f"compact_spelling_{turn_key}",
+            )
+        with control_cols[5]:
+            submitted = st.button(
+                "Send",
+                use_container_width=True,
+                type="primary",
+                key=f"composer_send_{turn_key}",
+            )
+
+        if hint_clicked or ask_clicked or spell_clicked:
+            draft = st.session_state.get(draft_key, "").strip()
+
+            if hint_clicked:
+                if not enemy_msgs:
+                    st.session_state.composer_notice = (
+                        "Post the first argument first. Hints become useful "
+                        "once there is an opposing message to answer."
+                    )
+                else:
+                    st.session_state.composer_notice = None
+                    own_msgs = [m for m in st.session_state.messages
+                                if m["side"] == active_side]
+                    own_main_claim = own_msgs[0]["content"] if own_msgs else ""
+                    last_enemy_msg = list(enemy_msgs.values())[-1]
+                    with st.spinner("Strategising..."):
+                        st.session_state.last_hint = generate_hint_v2(
+                            engine=st.session_state.engine,
+                            messages=st.session_state.messages,
+                            learner_side=active_side,
+                            recent_hints=st.session_state.hints_used_recent,
+                            enemy_argument=last_enemy_msg,
+                            own_main_claim=own_main_claim,
+                        )
+                    st.session_state.hints_used_recent += 1
+
+            if ask_clicked:
+                if not draft:
+                    st.session_state.composer_notice = "Type something first."
+                else:
+                    st.session_state.composer_notice = None
+                    recent = st.session_state.messages[-4:] if st.session_state.messages else None
+                    with st.spinner("Looking for an unstated premise..."):
+                        st.session_state.detected_premise = detect_implicit_premise(
+                            draft, recent_messages=recent
+                        )
+                    st.session_state.attach_premise = False
+
+            if spell_clicked:
+                if not draft:
+                    st.session_state.composer_notice = "Type something first."
+                else:
+                    st.session_state.composer_notice = None
+                    st.session_state.spell_typos = spellcheck.find_typos(draft)
+                    st.session_state.spell_checked_text = draft
+
+        with feedback_slot.container():
+            if st.session_state.get("composer_notice"):
+                st.info(st.session_state.composer_notice)
+            _render_hint_result()
+            _render_premise_result(turn_key)
+            _render_spellcheck_result(turn_key)
+
+    _submit_on_enter_script()
+    st.session_state.widget_interaction = False
+    return text_input, audio_file, uploaded_file, submitted
+
 
 def _process_move(text, value_tag, target, action, active_side,
                   uploaded_file, saved_media_path, media_type):
@@ -556,6 +1454,7 @@ def _process_move(text, value_tag, target, action, active_side,
     st.session_state.attach_premise   = False
     st.session_state.hints_used_recent = 0
     st.session_state.last_hint = None
+    st.session_state.composer_notice = None
     st.session_state.turn_start_time = time.time()
     if st.session_state.mode == "🤖 Human vs AI":
         _ai_turn(text, uploaded_file, saved_media_path, media_type, mid)
@@ -592,6 +1491,7 @@ def _ai_turn(latest_human_text, uploaded_file, saved_media_path,
         )
         time.sleep(stage_delay)
     placeholder.empty()
+    time.sleep(2.0)
     try:
         llm_weight, llm_text, human_weight, llm_val, llm_action, llm_target = generate_counter_argument(
             st.session_state.messages,
@@ -600,10 +1500,17 @@ def _ai_turn(latest_human_text, uploaded_file, saved_media_path,
             saved_media_path,
             media_type,
         )
-        st.session_state.engine.nodes[human_mid]["weight"] = human_weight
+        # Blend the AI's persuasiveness rating with the structural word-count
+        # weight that _process_move already wrote. Without the blend, the AI
+        # tends to return a flat ~20 for every reasonable argument, so every
+        # user message ends up at the same number. The blend keeps the AI's
+        # signal but lets argument length vary the visible weight.
+        existing_weight = st.session_state.engine.nodes[human_mid]["weight"]
+        blended_weight = max(1, min(25, round((existing_weight + human_weight) / 2)))
+        st.session_state.engine.nodes[human_mid]["weight"] = blended_weight
         for msg in reversed(st.session_state.messages):
             if msg.get("id") == human_mid:
-                msg["weight"] = human_weight
+                msg["weight"] = blended_weight
                 break
         if not llm_text or not llm_text.strip():
             _declare_ai_concession(
@@ -887,7 +1794,8 @@ def _wipe_session_for_new_debate() -> None:
     for key in ["engine", "messages", "msg_counter", "battle_over",
                  "current_turn", "history", "turn_start_time",
                  "hints_used_recent", "last_hint",
-                 "detected_premise", "attach_premise", "spell_typos"]:
+                 "detected_premise", "attach_premise", "spell_typos",
+                 "composer_notice"]:
         if key in st.session_state:
             del st.session_state[key]
 
@@ -896,79 +1804,72 @@ def _wipe_session_for_new_debate() -> None:
 
 def render_local_debate() -> None:
     inject_css()
+    inject_enter_to_send()
+    inject_logic_map_fullscreen_white()
     _init_session_state()
 
-    st.title(f"⚖️ Logic Advocate: {st.session_state.mode[2:]}")
+    # The title is rendered inside the central thread so it can stay aligned
+    # with the Codex-style workspace instead of spanning the whole page.
+
+    # Sidebar tools: Blitz toggle, End Debate Now, Undo Last Move,
+    # Save Battle, Export as TikZ, Previous Debates.
+    _render_sidebar()
 
     # Recompute scores once per render
     st.session_state.engine.evaluate_semantics()
 
-    _render_top_dashboard()
-    st.write("")
-
-    # ---- Side-by-side: chat history (left) + live logic map (right) ----
-    chat_col, map_col = st.columns([4.4, 1.6], gap="medium")
-    with chat_col:
-        _render_chat_history()
-    with map_col:
-        st.markdown("##### 🗺️ Live Logic Map")
-        st.caption(
-            "Solid red = attack · dashed blue = support · "
-            "🟠 amber border = Side A · 🟣 purple border = Side B · "
-            "green fill = IN · red fill = OUT"
-        )
-        # No fixed-height container: the chart renders at its natural
-        # height so the whole graph is visible without an inner scrollbar.
-        # The map grows as more arguments arrive; once the debate ends the
-        # final layout is fully visible on the page.
-        if st.session_state.engine.nodes:
-            st.graphviz_chart(
-                render_logic_graph(st.session_state.engine,
-                                   st.session_state.messages),
-                use_container_width=False,
-            )
-        else:
-            st.caption("The map appears once arguments are added.")
-
-    st.divider()
-
     # Blitz timer (no-op if blitz disabled)
     _render_blitz_timer()
+
+    active_side = None
+    text_input, audio_file, uploaded_file, submitted = "", None, None, False
+    action, target, value_tag = "Attack", "None", "Fact"
+    enemy_msgs = {}
+
+    if not st.session_state.battle_over:
+        if st.session_state.mode == "ðŸ¤– Human vs AI":
+            active_side = "Side A"
+        else:
+            active_side = st.session_state.current_turn
+
+    # ---- Codex-style workspace: title/dashboard above matched panels ----
+    header_col, _ = st.columns([5, 2], gap="large")
+    with header_col:
+        _render_thread_header()
+        # Top dashboard: SURVIVING/DEFEATED, Currently Ahead, node count,
+        # momentum bar and the End Debate button.
+        _render_top_dashboard()
+
+    chat_col, map_col = st.columns([5, 2], gap="large")
+    with chat_col:
+        text_input, audio_file, uploaded_file, submitted, target, action, value_tag = (
+            _render_chat_workspace(active_side)
+        )
+    with map_col:
+        # Same height as the chat container so both panels start and end
+        # together. The graph itself is size-capped in render_logic_graph.
+        map_container = st.container(height=600)
+        with map_container:
+            st.markdown("##### Live Logic Map")
+            st.caption(
+                "Solid red = attack | dashed blue = support | "
+                "blue node = Side A | red node = Side B/AI | "
+                "green border = IN | red border = OUT"
+            )
+            if st.session_state.engine.nodes:
+                st.graphviz_chart(
+                    render_logic_graph(st.session_state.engine,
+                                       st.session_state.messages),
+                    use_container_width=True,
+                )
+            else:
+                st.caption("The map appears once arguments are added.")
+
+    st.divider()
 
     if st.session_state.battle_over:
         _render_victory_screen()
     else:
-        # Active side
-        if st.session_state.mode == "🤖 Human vs AI":
-            active_side = "Side A"
-        else:
-            active_side = st.session_state.current_turn
-            color = "#007bff" if active_side == "Side A" else "#dc3545"
-            st.markdown(
-                f'<div class="turn-indicator" style="border:2px solid {color}; '
-                f'color:{color};">It is currently {active_side}\'s turn</div>',
-                unsafe_allow_html=True,
-            )
-
-        # Move controls
-        action_choice, target, action, value_tag, enemy_msgs = _render_move_controls(active_side)
-
-        # Hint button (MDP-guided)
-        _render_hint_button(active_side, enemy_msgs)
-
-        # Composer key (needed early so the premise/spellcheck buttons can read draft text)
-        turn_key = st.session_state.msg_counter
-
-        # Implicit premise detector (Ku et al. 2025 operationalised)
-        _render_premise_button(active_side, turn_key)
-
-        # Pre-submission spell check
-        _render_spellcheck_button(active_side, turn_key)
-
-        st.markdown("---")
-
-        text_input, audio_file, uploaded_file, submitted = _render_composer(turn_key)
-
         # Build composed text from text + audio
         text = ""
         if submitted and text_input:
@@ -1023,5 +1924,3 @@ def render_local_debate() -> None:
             learner_side=active_side_for_inspector,
             recent_hints=st.session_state.hints_used_recent,
         )
-
-    _render_sidebar()

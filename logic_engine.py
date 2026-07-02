@@ -238,3 +238,63 @@ class AcademicLogicEngine:
                     eng.add_direct_attack(mid, tgt)
         eng.evaluate_semantics()
         return eng
+
+    # ================================================================
+    # Classical baselines
+    #
+    # The two methods below are the published baselines my engine is
+    # compared against in Chapter 5 of the thesis. They consume the
+    # same `self.nodes` and `self.attacks` data as `evaluate_semantics`
+    # so the comparison is run on identical input. They ignore
+    # `self.supports`, weights, and value tags, since neither baseline
+    # is defined on bipolar / weighted / value-tagged input.
+    # ================================================================
+
+    def grounded_extension(self) -> set:
+        """Classical Dung 1995 grounded extension.
+
+        Returns the least fixed point of the characteristic function
+            F(S) = { a : forall b. (b,a) in R => exists c in S. (c,b) in R }
+        The result is the set of arguments that are *definitely
+        accepted* under Dung's grounded semantics. Used as the
+        canonical IN/OUT baseline in `tools/run_evaluation.py`.
+        """
+        S: set = set()
+        while True:
+            added = False
+            for a in self.nodes:
+                if a in S:
+                    continue
+                attackers = [b for (b, t) in self.attacks if t == a]
+                ok = True
+                for b in attackers:
+                    if not any(
+                        s in [bb for (bb, tt) in self.attacks if tt == b]
+                        for s in S
+                    ):
+                        ok = False
+                        break
+                if ok:
+                    S.add(a)
+                    added = True
+            if not added:
+                break
+        return S
+
+
+    def h_categorizer(self, max_iter: int = 100,
+                      eps: float = 1e-6) -> Dict[str, float]:
+        """Besnard-Hunter 2001 h-categorizer (1/(1+sum of attacker scores))."""
+        scores = {a: 1.0 for a in self.nodes}
+        for _ in range(max_iter):
+            new_scores: Dict[str, float] = {}
+            for a in self.nodes:
+                attacker_sum = sum(
+                    scores[b] for (b, t) in self.attacks if t == a
+                )
+                new_scores[a] = 1.0 / (1.0 + attacker_sum)
+            if all(abs(new_scores[a] - scores[a]) < eps
+                   for a in self.nodes):
+                return new_scores
+            scores = new_scores
+        return scores

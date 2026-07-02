@@ -1,0 +1,243 @@
+\chapter{Implementation}
+\label{ch:impl}
+
+\section{Overview}
+In this chapter I walk through the actual code that turns the design from Chapter~\ref{ch:methodology} into a working application. I wrote everything in Python~3.11, and my UI rides on Streamlit~1.32 \cite{streamlit2024}. I organised the repository into seven Python files split between a top level package and a \texttt{views/} subpackage:
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\texttt{app.py} & Entry point, mode router \\
+\texttt{logic\_engine.py} & The Logic Layer \\
+\texttt{ai\_agent.py} & The AI Layer (Groq client and prompts) \\
+\texttt{database.py} & Legacy JSON persistence helper \\
+\texttt{lobby\_db.py} & Online mode lobby store \\
+\texttt{views/local\_debate.py} & Single machine UI (Human vs AI and Local) \\
+\texttt{views/mobile\_multiplayer.py} & Online host dashboard and player view \\
+\bottomrule
+\end{tabular}
+\end{center}
+I will go through these in roughly the order a debate move travels through them. Starting with the Logic Layer (because everything else ultimately calls it) and ending with the multiplayer subsystem.
+
+\section{The Logic Engine}
+\label{sec:impl_engine}
+I keep my Logic Layer in one file, \texttt{logic\_engine.py}. It contains a constant table and a single class. The constant table fixes the value tag multipliers from Section~\ref{sec:bipolar_engine}:
+\begin{lstlisting}[language=Python]
+VALUE_WEIGHTS = {
+    "Fact":    1.2,
+    "Logic":   1.1,
+    "Ethics":  1.0,
+    "Emotion": 0.8,
+}
+\end{lstlisting}
+These four numbers are the most opinionated thing in my whole system. I did not lift them from a paper. I picked them by hand so a Fact tagged attack on an Emotion tagged claim would land with about 50\% more weight than the reverse, which lined up with the rough asymmetry Bench-Capon describes in his worked examples \cite{benchcapon2003value} while still letting emotional appeals do real work.
+
+\subsection{The {\normalfont\texttt{AcademicLogicEngine}} class}
+The class I wrote is short enough to put in front of you in full:
+\begin{lstlisting}[language=Python]
+class AcademicLogicEngine:
+    def __init__(self):
+        self.nodes    = {}
+        self.attacks  = []
+        self.supports = []
+        self.statuses = {}
+        self.scores   = {}
+\end{lstlisting}
+
+I mapped the four state members directly onto the formal tuple $\langle \mathcal{A}, \mathcal{R}_{\text{att}}, \mathcal{R}_{\text{sup}}, \dots \rangle$ from Section~\ref{sec:bipolar_engine}. \texttt{nodes} is a dict keyed by message id (e.g.~\texttt{"Msg\_3"}). The two relations are flat lists of pairs. I have three setters, each one line. \texttt{add\_argument}, \texttt{add\_direct\_attack}, \texttt{add\_support}. None of them validate anything. I left validation in the Dialogue Layer because I wanted my engine to be a pure mathematical object that I can test without anything else from the project.
+
+\subsection{The semantics loop}
+I fit the whole algorithm from Section~\ref{sec:score} in one method, \texttt{evaluate\_semantics}:
+\begin{lstlisting}[language=Python]
+def evaluate_semantics(self):
+    self.scores = {mid: 1.0 for mid in self.nodes}
+    for _ in range(10):
+        new_scores = {}
+        for mid in self.nodes:
+            t_val = self.nodes[mid].get("value_tag", "Logic")
+            attack_sum = 0
+            for atk, tgt in self.attacks:
+                if tgt == mid and atk in self.nodes:
+                    a_val = self.nodes[atk].get("value_tag", "Logic")
+                    mult  = VALUE_WEIGHTS[a_val] / VALUE_WEIGHTS[t_val]
+                    attack_sum += self.scores[atk] * \
+                                  self.nodes[atk]["weight"] * mult
+            support_sum = 0
+            for sup, tgt in self.supports:
+                if tgt == mid and sup in self.nodes:
+                    s_val = self.nodes[sup].get("value_tag", "Logic")
+                    mult  = VALUE_WEIGHTS[s_val] / VALUE_WEIGHTS[t_val]
+                    support_sum += self.scores[sup] * \
+                                   self.nodes[sup]["weight"] * mult
+            tw = max(1, self.nodes[mid]["weight"])
+            # SUPPORT_COEFF < 1 so that balanced attack and support do
+            # not saturate the score at 1.0. See Section~\ref{sec:support_coefficient}.
+            SUPPORT_COEFF = 0.5
+            score = (1.0 + SUPPORT_COEFF * support_sum / tw) / \
+                    (1.0 + attack_sum / tw)
+            new_scores[mid] = min(1.0, score)
+        self.scores = new_scores
+    for mid in self.nodes:
+        self.statuses[mid] = "IN" if self.scores[mid] >= 0.5 else "OUT"
+\end{lstlisting}
+
+A few things in this loop are worth pointing out. I made the loop read from \texttt{self.scores} and write to \texttt{new\_scores}, so every update inside an iteration sees the same ``previous'' state. I went with synchronous relaxation instead of the asynchronous version, even though async would converge faster, because async would make the result depend on the order in which I added the arguments. That is bad for reproducibility and bad for debugging. The fixed iteration count of ten is overkill for any debate sized graph. In practice the score vector stops changing well before iteration seven (more on that in Chapter~\ref{ch:results}). I did not bother with an explicit convergence test because the iteration cost is dwarfed by the LLM round trip anyway. I also made the loop tolerate self attacks and self supports (it would happily process $(a, a)$). My Dialogue Layer prevents these from ever appearing, so this tolerance is harmless and saves me a special case. Finally, I cap the score at 1 at the very end. Without that cap, a heavily supported but unattacked argument could end up with a score above 1, which would render with an out of range fill colour. The constant \texttt{SUPPORT\_COEFF~=~0.5} on the score line implements the support coefficient $\kappa$ I derived in Section~\ref{sec:support_coefficient}. I keep it inline rather than as a module-level constant so it is impossible to miss when reading the loop, and so that any future tuning is a one line change in the one place that uses it.
+
+\subsection{A worked example}
+Suppose I add three arguments to the graph with equal weight $10$, so the value tags do the work:
+\begin{align*}
+a_1: \text{``Schools should ban phones.''} \quad & w=10, \quad v=\textsc{Fact} \\
+a_2: \text{``Phones interrupt classroom focus.''} \quad & w=10, \quad v=\textsc{Logic} \quad \text{supports } a_1 \\
+a_3: \text{``Phones are essential for safety.''} \quad & w=10, \quad v=\textsc{Ethics} \quad \text{attacks } a_1
+\end{align*}
+The attacker contribution to $a_1$ is
+\[
+\alpha(a_1) = 1 \cdot 10 \cdot \mu(\textsc{Ethics})/\mu(\textsc{Fact}) = 10 \cdot 1.0/1.2 \approx 8.33,
+\]
+and the supporter contribution is
+\[
+\sigma(a_1) = 1 \cdot 10 \cdot \mu(\textsc{Logic})/\mu(\textsc{Fact}) = 10 \cdot 1.1/1.2 \approx 9.17.
+\]
+Plugging into the score rule with $\kappa = 0.5$ and $w(a_1) = 10$,
+\[
+s(a_1) = \frac{1 + 0.5 \cdot 9.17 / 10}{1 + 8.33/10} = \frac{1.458}{1.833} \approx 0.80.
+\]
+So $a_1$ scores roughly $0.80$ and lands clearly above the $0.5$ threshold, status \texttt{IN}. The other two arguments have no attackers, so they stay at $1$. The verdict and momentum match my intuition (the factual claim survives the ethical attack because it has a logical supporter on its side), and crucially the score is visibly less than $1$. Under the original $\kappa = 1$ formula the same configuration saturates at $1.0$ because $\sigma \geq \alpha$. The $0.80$ tells the learner the claim is under pressure even though it survives, which is exactly the visual signal I built the system to give.
+
+If I now swap the supporter $a_2$ from \textsc{Logic} to \textsc{Emotion}, the supporter contribution shrinks to $\sigma(a_1) = 10 \cdot 0.8/1.2 \approx 6.67$ and the score drops to
+\[
+s(a_1) = \frac{1 + 0.5 \cdot 6.67/10}{1 + 8.33/10} = \frac{1.333}{1.833} \approx 0.73.
+\]
+Same graph, weaker tag on the supporter, lower score. That is exactly the value aware behaviour I wanted my framework to expose, and seeing it fall out of the math the first time was the moment I knew the formula was right.
+
+\section{The AI Layer}
+\label{sec:impl_ai}
+I keep my AI Layer in \texttt{ai\_agent.py} and expose three functions. \texttt{transcribe\_audio}, \texttt{generate\_counter\_argument}, and \texttt{generate\_hint}. I wrote all three as wrappers around the Groq Cloud \cite{groq2024api} inference endpoint. I picked Groq over OpenAI or Anthropic for two reasons. Groq's hardware returns LLaMA-3 70B \cite{meta2024llama3} responses in single digit seconds, which keeps the perceived debate latency low enough that a typed exchange does not feel broken. And Groq's free tier is generous enough that I never hit the limit during thesis scale testing, so no participant ever needed to hand me a credit card.
+
+\subsection{Generating a counter argument}
+\texttt{generate\_counter\_argument} is the most consequential function in my AI Layer. It takes the full chat transcript, the latest user text, and any attached media, and returns five things. Trimmed down version:
+\begin{lstlisting}[language=Python]
+def generate_counter_argument(messages, latest_text,
+                              uploaded_file=None,
+                              saved_media_path=None,
+                              media_type=None):
+    transcript = build_transcript(messages)
+    prompt     = STYLE_PROMPT + transcript + INSTRUCTIONS.format(
+                       latest=latest_text)
+    model      = 'llama-3.3-70b-versatile'
+    if uploaded_file and media_type.startswith("image"):
+        model = 'llama-3.2-90b-vision-preview'
+        msg = [build_text_block(prompt),
+               build_image_block(saved_media_path, media_type)]
+    else:
+        msg = [{"role": "user", "content": prompt}]
+    resp = client.chat.completions.create(
+            model=model, messages=msg,
+            temperature=0.7, max_tokens=1024)
+    return parse(resp.choices[0].message.content)
+\end{lstlisting}
+The prompt itself is a long format string I wrote in second person. It does three jobs at the same time. First, it sets the role. ``A debate partner in a student project about logic and argumentation,'' with an explicit instruction never to refuse the topic. I added that instruction after my second day of testing, when the model kept moralising about ``contentious topics'' and refusing to engage. That single sentence was the most impactful change in my entire prompt. Second, it specifies the style. Short, casual sentences, no jargon, do not correct typos. Without that style instruction, LLaMA-3 produces heavy academic counter arguments that read as condescending in a chat bubble. And third, it specifies the protocol. The response has to be exactly four pipe separated fields, \texttt{HumanScore|AIScore|ValueTag|CounterText}, or the literal string \texttt{0|0|Logic|CONCEDE} if the AI thinks the human's most recent argument is unanswerable.
+
+The pipe protocol is, I admit, ugly. But I find it much easier to parse than JSON when the model occasionally throws stray markdown at you. My parser is forgiving:
+\begin{lstlisting}[language=Python]
+try:
+    parts = response_text.split("|", 3)
+    human_weight = max(1, min(25, int(parts[0].strip())))
+    llm_weight   = max(1, min(25, int(parts[1].strip())))
+    llm_val      = parts[2].strip()
+    if llm_val not in {"Logic", "Fact", "Ethics", "Emotion"}:
+        llm_val = "Logic"
+    llm_text     = parts[3].strip()
+except Exception:
+    human_weight = llm_weight = 12
+    llm_val      = "Logic"
+    llm_text     = response_text
+\end{lstlisting}
+On a parse failure I just degrade gracefully. The raw model output gets used as the counter argument text and the weights default to a neutral 12. That is much better than throwing an error, because the human still sees a reply (which keeps the educational flow going) and only the score calibration takes a hit.
+
+\subsection{How I ground the LLM}
+\label{sec:grounding}
+The most important pedagogical claim my system makes, that the LLM cannot fake who is winning, is not enforced by the prompt. I enforce it through the surrounding code. After every human move my engine recomputes scores. Those scores feed the momentum bar, the colour map, and the per bubble percentages. The LLM never sees these scores. It only ever sees the raw transcript. So there is no way for the LLM to pretend a defeated argument is alive. That judgment is made by deterministic Python the moment I add the move to the graph. If a learner produces a knockout argument, my engine will mark the AI's previous reply as \texttt{OUT} regardless of how confident the AI's text is. My user interface always reports the engine's verdict, not the LLM's.
+
+\subsection{Generating a hint}
+\texttt{generate\_hint} is much smaller. I designed it to take a single string (the opponent's most recent argument) and ask the model for ``a very brief, 1 sentence hint on how to attack the logical weak points of this argument.'' I capped the output at 100 tokens. I show the hint in a Streamlit \texttt{st.info} box rather than a chat bubble, which marks it visually as advice rather than as an argument. I also made sure my move counter is not incremented when a hint is requested. The learner can ask for as many hints as they want without forfeiting their turn. I tried both the ``help as a move'' version and the ``help as a side channel'' version during early testing. The side channel version felt a lot less stressful, which lined up with the design recommendation in Stamper et al.~\cite{stamper2011hints}.
+
+\subsection{Voice transcription}
+I made \texttt{transcribe\_audio} send the recorded \texttt{wav} buffer to the Groq endpoint with \texttt{model="whisper-large-v3"} and return the JSON \texttt{text} field. The recording itself happens in the browser through Streamlit's \texttt{st.audio\_input} component, with a fallback to the experimental variant for older Streamlit releases. I save the buffer to an \texttt{uploads/} folder under a timestamped name, partly because that lets the educator review what the student actually said, and partly because \texttt{whisper-large-v3} accepts file paths more reliably than in memory streams.
+
+\section{The Local Debate View}
+\label{sec:impl_local}
+\texttt{views/local\_debate.py} is the largest file in my project, around 470 lines. It owns the entire single machine experience and uses Streamlit's session state as its only persistence mechanism between user actions.
+
+\subsection{Initialisation}
+The first time the page renders, my view builds an \texttt{AcademicLogicEngine} from scratch and stashes it in \texttt{st.session\_state}. The other persistent variables (\texttt{messages}, \texttt{msg\_counter}, \texttt{battle\_over}, \texttt{current\_turn}, \texttt{blitz\_enabled}, \texttt{turn\_start\_time}) live there too. Streamlit re runs the whole script on every interaction, so anything I want to survive a click has to live in session state. Module level globals will silently get reset.
+
+\subsection{The composer bar}
+I laid out my composer as a three column row. A \texttt{popover} for attachments on the left, a single line text input in the middle, and a primary submit button on the right. I injected a short JavaScript snippet via \texttt{streamlit.components.v1.html} that attaches a \texttt{keydown} listener that translates an Enter press inside the text field to a click on the most recent primary button. This is the only piece of imperative JS in my whole project. I had to add it because Streamlit's default behaviour on Enter (a full rerun without a button click) misses the audio recorder's stop event when the microphone is active.
+
+\subsection{The thinking animation}
+After the human submits a move in Human vs AI mode, I run a small UX flourish. A placeholder cycles through three phrases (``Reading your argument\dots,'' ``Thinking of a counter\dots,'' ``Formulating response\dots'') with about 0.8 second delays between them. It is purely cosmetic. But it changes the felt latency of an LLM round trip from ``the system froze'' to ``the system is thinking,'' which is a real perceived quality win even when the wall clock time is the same.
+
+\subsection{The graph and the momentum bar}
+I rebuild the graph from scratch on every rerun. For every node, I compute a fill colour straight from the score:
+\begin{lstlisting}[language=Python]
+r = int(255 * (1.0 - score))
+g = int(200 * score)
+hex_color = f"#{r:02x}{g:02x}44"
+\end{lstlisting}
+That gives me the red to yellow to green gradient I described in Section~\ref{sec:bipolar_engine}. I build the edges from the same \texttt{messages} list, with attacks in red and supports in blue. Streamlit's \texttt{st.graphviz\_chart} call hands the rest off to Graphviz \cite{ellson2002graphviz}.
+
+I made the momentum bar plain inline HTML rather than a chart component, because for two values that always sum to 100\%, a flexbox of two coloured \texttt{div}s renders fastest and degrades cleanly if the user has CSS animations off.
+
+\subsection{Saving and loading}
+I wired the ``Save Battle'' sidebar button to write the messages, my engine's nodes, and the current statuses to a single JSON file (\texttt{unified\_battle\_history.json}). On load, the chat and most of the engine state come back. I reconstruct the engine's relations from the message list itself, since every message records its own \texttt{target} and \texttt{action}. My legacy module \texttt{database.py} has the same interface but writes to a different file (\texttt{adel\_battle\_history.json}). It is still in the repo because some of my earliest debates were saved under that older schema.
+
+\section{The Online Multiplayer View}
+\label{sec:impl_online}
+In \texttt{views/mobile\_multiplayer.py} I add two new responsibilities on top of the local view. Discovery (how do players find the room?) and shared state (how do they see each other's moves?). I kept both as simple as I could.
+
+\subsection{The lobby store}
+My lobby store sits in \texttt{lobby\_db.py} and exposes six small functions. \texttt{load\_lobbies}, \texttt{save\_lobbies}, \texttt{get\_lobby}, \texttt{create\_lobby}, \texttt{update\_lobby}, and \texttt{join\_lobby}. Each one operates on a single JSON file (\texttt{lobbies.json}) on the host machine. There is no transactional locking. The load mutate save pattern is safe enough here because, in real classroom usage, the file is rewritten roughly once every 10 to 20 seconds by either side, and my auto refresh interval of three seconds makes a write write race vanishingly rare. If I ever scaled this past two party debates, a real key value store would be the next step. For now it works.
+
+A lobby record carries everything the views need:
+\begin{lstlisting}[language=Python]
+{
+    "room_id":         "Room123",
+    "state":           "WAITING" | "ACTIVE" | "FINISHED",
+    "players":         ["Side A", "Side B"],
+    "messages":        [...],
+    "msg_counter":     N,
+    "current_turn":    "Side A" | "Side B",
+    "propose_end":     {"Side A": bool, "Side B": bool},
+    "blitz_enabled":   bool,
+    "turn_start_time": float
+}
+\end{lstlisting}
+
+\subsection{The host dashboard}
+I made \texttt{render\_mobile\_host} run in the host's browser. When the host creates a room, my function tries to open an ngrok tunnel \cite{ngrok2024} on the Streamlit port (8502). If no ngrok auth token is configured, it falls back to the local IP. I generate the QR code through the \texttt{qrcode} library \cite{qrcode2024}, which encodes the resulting URL with the room id baked in as a query parameter. Players who scan the code land on a role selection screen and pick Side A, Side B, or Spectator. I designed the host's own view to be read only with respect to the conversation, but I gave it the same logic graph, momentum bar, and override buttons as the single machine experience.
+
+\subsection{The player view}
+I run \texttt{render\_mobile\_player} whenever the URL has a \texttt{room\_id} query parameter. I made it pivot on the role the player picked. Spectators see only the chat and the graph. Debaters see the composer if it is their turn, or a ``waiting'' state if it is not. Because I mediate every event through the polled JSON file, the view is self correcting. If a debater's tab gets closed and reopened, the next auto refresh hands them the current state with no recovery code in between. That made my multiplayer mode dramatically easier to debug than I had expected.
+
+\subsection{Reconstructing the engine on every poll}
+Here is a subtle detail. My lobby store does not persist the engine at all. It only persists the moves. Whenever the spectator or player view needs scores, I spin up a fresh \texttt{AcademicLogicEngine}, replay every move, and run \texttt{evaluate\_semantics}. That is computationally trivial (every replay finishes in under a millisecond at debate scale graph sizes) and means there is exactly one source of truth for my framework. The message list. I made that decision on day three of building the multiplayer code, and it killed an entire class of synchronisation bugs where two clients might disagree on the score because they had each been mutating their own engine.
+
+\section{Application Routing}
+\texttt{app.py} is my entry point. It has two jobs. First, it looks at the URL's query parameters. If a \texttt{room\_id} is present, the request goes straight to \texttt{render\_mobile\_player}. Otherwise the host menu shows up. Second, the host menu has a sidebar radio between the three modes (Human vs AI, Human vs Human Local, and Online), and dispatches accordingly. I added a guard clause that wipes session state when the mode changes. Without it, state from one mode would leak into another and cause weird, hard to diagnose UI bugs.
+
+\section{Engineering Trade Offs}
+There were a handful of small but instructive trade offs that shaped my implementation.
+
+\paragraph{Streamlit vs.~a custom front end.} I picked Streamlit because it lets one developer ship a working full stack app in days, with state, layout, and re rendering all handled by the framework. The cost is that the framework re runs the script on every interaction. Long lived in memory data (an AI chain of thought, say) is not really possible without explicit session state plumbing. For a Bachelor thesis, I think that trade off was right. For something serving thousands of users it would not be.
+
+\paragraph{JSON files vs.~a real database.} I keep lobbies and history in JSON files for the same reason. Zero infrastructure. A SQLite database would not have cost much more, but it would have meant every classroom host needed \texttt{sqlite3} tools to inspect debate transcripts. JSON is human readable and you can grep it, which keeps the barrier to qualitative analysis low.
+
+\paragraph{Pipe protocol vs.~JSON for LLM output.} Pipe parsing tolerates missing markdown fences, stray emoji, and the occasional half baked formatting from the LLM. JSON does not. Two days of early development debugging turned out to be caused by the model wrapping otherwise correct responses in \texttt{```json} fences. Pipes survived this perfectly.
+
+\paragraph{Hand tuned value tag multipliers.} I did not learn the constants \texttt{1.2/1.1/1.0/0.8} from any data. I picked them by inspection so that fact vs emotion attacks felt right in informal play. A cleaner future version would expose them as a per classroom setting that the educator can tweak.
+
+\section{Repository Statistics}
+My deployed system, leaving out the legacy \texttt{class~Argument.txt} prototype and the saved debate JSON files, is about 1{,}330 lines of Python across the seven modules I listed earlier. Roughly 35\% of those lines are presentation HTML embedded in Python f strings, 25\% are Streamlit widget calls, 30\% are application logic, and 10\% are the formal logic of \texttt{logic\_engine.py}. The smallness of the formal core compared to the wrapping is, looking back, the best evidence that my layered design was the right call. The part that does the actual mathematics is no more than 60 lines of Python, and the rest of the system exists to make those 60 lines reach a learner.
+
+\section{Summary}
+In this chapter I have translated the design abstractions of Chapter~\ref{ch:methodology} into specific Python files and explained the engineering decisions behind each one. I made the Logic Layer small, deterministic and isolated. I made the AI Layer communicate through a strict protocol that the Logic Layer can audit. I built the Presentation and Dialogue Layers on top of Streamlit and used polled JSON files to share state in online mode. Together these pieces realise the Logic Advocate Tutor as a usable, classroom deployable web application. In the next chapter I look at whether they actually achieve the educational goals I set out in Chapter~\ref{ch:introduction}.

@@ -1,0 +1,129 @@
+% =====================================================================
+%  AI-versus-AI tournament — Chapter 5 result section.
+%  Pure results presentation: one section, no methodology subsections,
+%  no pattern subsections. Just the result point, the evidence, the
+%  figures and a closing caveat.
+%
+%  Screenshots needed under img/ with these exact filenames:
+%      smartphones_groq.png   smartphones_or.png
+%      teachers_groq.png      teachers_or.png
+%      cigarettes_groq.png    cigarettes_or.png
+% =====================================================================
+
+\section{AI-versus-AI Tournament}
+\label{sec:aivai_tournament}
+
+\paragraph{Result.}
+The engine produced a stable verdict on $10$ of $12$ end-to-end LLM-versus-LLM debates run across six topics with starter swap, holding the same \texttt{IN}/\texttt{OUT} outcome under both provider orderings on every topic. The two \texttt{OUT} verdicts both occurred on a deliberately contrarian motion (\emph{Human teachers should be replaced by AI tutors}), and they occurred regardless of which provider was assigned the proponent role. On every other topic the proponent's main claim survived under both starter orderings, but with score margins ranging from $0.59$ (narrow) to $1.00$ (saturated), so the bipolar gradual rule with $\kappa = 0.5$ (Section~\ref{sec:support_coefficient}) preserved a meaningful gradient even on debates where the verdict was the same.
+
+The tournament consisted of six topics covering educational policy (\emph{Schools should ban smartphones in classrooms}, \emph{Universities should replace exams with projects}), social ethics (\emph{Animal testing should be banned}, \emph{Fast fashion should be heavily regulated}), public-health regulation (\emph{Cigarettes should be banned completely}), and one deliberately contrarian proposition designed to test stance bias (\emph{Human teachers should be replaced by AI tutors}). Each topic was debated twice with the two LLM providers swapping the starter role, for a total of twelve debates of eight turns each and ninety-six engine-judged moves. Side~A always played proponent, Side~B opponent. The two providers were \textbf{Groq} serving \texttt{llama-3.3-70b-versatile} \cite{groq2024api, meta2024llama3} and \textbf{OpenRouter} serving \texttt{meta-llama/llama-3.3-70b-instruct}, \textbf{both used on free tiers at zero total API cost}, so the entire tournament is reproducible by any reader willing to register for two free API keys. After every move my engine ran \texttt{evaluate\_semantics()} and recorded the resulting score and status. The verdict on the proponent's main claim (\texttt{Msg\_1}) is the reported outcome.
+
+\begin{table}[ht]
+\centering
+\caption{Outcome of \texttt{Msg\_1} (the proponent's main claim) under each starter ordering across the six tournament topics. \emph{Groq-A} means Groq played the proponent; \emph{OR-A} means OpenRouter played the proponent. Score is the engine's final acceptability for \texttt{Msg\_1}.}
+\label{tab:aivai_outcomes}
+\begin{tabular}{lcc}
+\toprule
+Topic & Groq-A: status (score) & OR-A: status (score) \\
+\midrule
+Schools should ban smartphones                & IN (0.91) & IN (0.59) \\
+Universities replace exams with projects      & IN (1.00) & IN (0.65) \\
+Replace human teachers with AI tutors         & \textbf{OUT (0.38)} & \textbf{OUT (0.23)} \\
+Fast fashion heavily regulated                & IN (0.88) & IN (1.00) \\
+Animal testing banned                         & IN (0.88) & IN (0.67) \\
+Cigarettes banned completely                  & IN (1.00) & IN (1.00) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:aivai_outcomes} shows that on every topic the binary verdict (\texttt{IN} vs \texttt{OUT}) holds under both starter orderings even though the absolute scores and the resulting graph topologies differ. The smartphones topic, for instance, lands at $0.91$ when Groq opens and $0.59$ when OpenRouter opens (Figure~\ref{fig:smartphones_pair}). The verdict is the same but the second debate hovers just above the $0.5$ threshold. This is the soft-cap rule from Section~\ref{sec:support_coefficient} doing its intended job: the engine reports \emph{how comfortably} the proponent won, not just \emph{that} the proponent won. Under the original $\kappa = 1$ formula both runs would have saturated at $1.0$ and this distinction would have been lost.
+
+% ------------------ FIGURE 1: SMARTPHONES PAIR ----------------------
+% Save left screenshot as: img/smartphones_groq.png
+% Save right screenshot as: img/smartphones_or.png
+\begin{figure}[ht]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{img/smartphones_groq.png}
+    \centerline{\small (a) Groq starts as Side A. Verdict: \texttt{IN} at $0.91$.}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{img/smartphones_or.png}
+    \centerline{\small (b) OpenRouter starts as Side A. Verdict: \texttt{IN} at $0.59$.}
+\end{minipage}
+\caption[Smartphones tournament pair]{\emph{Schools should ban smartphones in classrooms.} Final argument graphs under both starter orderings. Green nodes carry a Groq move; blue nodes carry an OpenRouter move. Solid red arrows are attacks; dashed blue arrows are supports. Same verdict, different margins to threshold; illustrates the $\kappa = 0.5$ gradient.}
+\label{fig:smartphones_pair}
+\end{figure}
+
+The contrarian \emph{replace teachers with AI} topic is the only one in the tournament where the proponent's claim was defeated, and it was defeated under both starter orderings ($0.38$ and $0.23$, Figure~\ref{fig:teachers_pair}). Both providers, when assigned the proponent role, generated arguments that the symbolic engine then judged unable to withstand the opponent's attacks. This is an honest empirical observation about stance bias in the underlying LLMs: the engine does not see the LLMs trying noticeably harder when assigned a less popular position. It sees the same general pattern of moves and judges the result by the same formula. The verdict structure is therefore informative about \emph{what positions LLMs are willing to defend with their full rhetorical strength}, not just about who is arguing better on a given turn.
+
+% ------------------ FIGURE 2: TEACHERS PAIR ----------------------
+% Save left  screenshot as: img/teachers_groq.png
+% Save right screenshot as: img/teachers_or.png
+\begin{figure}[ht]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{img/teachers_groq.png}
+    \centerline{\small (a) Groq starts as Side A. Verdict: \texttt{OUT} at $0.38$.}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{img/teachers_or.png}
+    \centerline{\small (b) OpenRouter starts as Side A. Verdict: \texttt{OUT} at $0.23$.}
+\end{minipage}
+\caption[Contrarian-topic pair]{\emph{Human teachers should be replaced by AI tutors.} The only topic in the tournament where the proponent's main claim was defeated, and the only one where the defeat held regardless of starter.}
+\label{fig:teachers_pair}
+\end{figure}
+
+At the opposite end of the spectrum the cigarettes-banned topic produces a fully saturated $1.00$ verdict in both orderings (Figure~\ref{fig:cigarettes_pair}). I read this as a near-consensus topic in the LLMs' training data: neither provider can muster a sustained attack against the proponent's claim regardless of who opens. Note that under the conservative $\kappa = 0.5$ rule, reaching the cap requires the supporter contribution to dominate the attacker contribution by a factor of two. That this happens consistently is evidence that both LLMs treat the proposition as essentially uncontested rather than that they failed to attack at all.
+
+% ------------------ FIGURE 3: CIGARETTES PAIR ----------------------
+% Save left  screenshot as: img/cigarettes_groq.png
+% Save right screenshot as: img/cigarettes_or.png
+\begin{figure}[ht]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{img/cigarettes_groq.png}
+    \centerline{\small (a) Groq starts as Side A. Verdict: \texttt{IN} at $1.00$.}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{img/cigarettes_or.png}
+    \centerline{\small (b) OpenRouter starts as Side A. Verdict: \texttt{IN} at $1.00$.}
+\end{minipage}
+\caption[Consensus-topic pair]{\emph{Cigarettes should be banned completely.} Both runs saturate at $1.00$, the only topic in the tournament to do so. Evidence of near-consensus in the underlying LLMs.}
+\label{fig:cigarettes_pair}
+\end{figure}
+
+Across the ninety-six individual moves the LLMs picked the four value tags non-uniformly, in a pattern that tracks topic genre. Educational topics produced Ethics and Logic dominance, social-ethics topics produced the first Fact tags (likely statistics retrieval), and the replace-teachers debate was the most Logic-heavy of all six. The tags map onto recognisable rhetorical modes even though the LLMs had no scoring incentive to pick honestly. Every one of the twelve debates contains at least one \textsc{Support} edge, with roughly one move in five being a support rather than an attack despite the LLM being free to pick either. The bipolar machinery is therefore being exercised in practice, not just in theory.
+
+These twelve debates are \textbf{not} a statistical evaluation; they are a qualitative demonstration that the system runs end to end and produces sensible verdicts on real LLM output. The findings about LLM stance bias on the \emph{replace teachers} topic and about value-tag distribution shifting with genre are observations from a sample of twelve, not significance-tested claims. A controlled study would re-run each topic with at least thirty different random-temperature replicates and report variance bars on the final score; that study is listed as future work in Chapter~\ref{ch:conclusion}. The remaining nine final argument graphs (the other side of the swap for the three topics covered above, plus the three topics not covered in the main text) are available in Appendix~\ref{app:aivai_graphs}.
+
+% =====================================================================
+%  Appendix material — paste at the end of 99Appendix.tex or wherever
+% =====================================================================
+% \section{Remaining AI-versus-AI argument graphs}
+% \label{app:aivai_graphs}
+%
+% Universities should replace exams with projects:
+%   img/universities_groq.png
+%   img/universities_or.png
+%
+% Fast fashion should be heavily regulated:
+%   img/fashion_groq.png
+%   img/fashion_or.png
+%
+% Animal testing should be banned:
+%   img/animal_groq.png
+%   img/animal_or.png
+%
+% (Each of these gets its own \begin{figure} with two minipages and a
+%  short caption noting the verdict, mirroring the format used in
+%  Figures~\ref{fig:smartphones_pair}-\ref{fig:cigarettes_pair} above.)

@@ -130,12 +130,17 @@ def _build_transcript(messages: List[Dict]) -> str:
 
 _PIPE_RE = re.compile(
     r"(\d{1,2})\s*\|\s*(\d{1,2})\s*\|\s*"
-    r"(Logic|Fact|Ethics|Emotion)\s*\|\s*"
+    r"([A-Za-z]+)\s*\|\s*"
     r"(Attack|Support)\s*\|\s*"
     r"(Msg_\d+|None)\s*\|\s*"
     r"([^\n]+)",
     re.IGNORECASE,
 )
+
+
+def _normalise_value_tag(tag: str) -> str:
+    tag = tag.strip().capitalize()
+    return tag if tag in {"Logic", "Fact", "Ethics", "Emotion"} else "Logic"
 
 
 def _parse_counter_response(text: str) -> Dict[str, object]:
@@ -144,7 +149,7 @@ def _parse_counter_response(text: str) -> Dict[str, object]:
         hw_s, aw_s, tag, action, target, txt = matches[-1]
         hw  = max(1, min(25, int(hw_s)))
         aw  = max(1, min(25, int(aw_s)))
-        tag = tag.capitalize()
+        tag = _normalise_value_tag(tag)
         action = action.capitalize()
         txt = txt.strip().strip("'\"")
         if "CONCEDE" in txt.upper():

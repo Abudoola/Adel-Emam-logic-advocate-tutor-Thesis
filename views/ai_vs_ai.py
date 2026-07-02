@@ -28,8 +28,10 @@ class OpenRouterTransport(httpx.BaseTransport):
 from logic_engine import AcademicLogicEngine, VALID_VALUE_TAGS
 from ai_agent import TEXT_MODEL, _build_transcript, _parse_counter_response
 from views._styles import (
-    inject_css, render_argument_bubble, render_momentum_bar,
+    inject_css, inject_enter_to_send, inject_logic_map_fullscreen_white,
+    render_argument_bubble, render_momentum_bar,
     render_logic_graph,
+    reveal_typing_bubble,
 )
 from views.engine_inspector import render_inspector_panel
 
@@ -453,7 +455,10 @@ def _run_one_turn():
             st.session_state.engine.add_support(mid, target_id)
         else:
             st.session_state.engine.add_direct_attack(mid, target_id)
-            
+
+    # Removed reveal_typing_bubble preview so the AI vs AI thread does not
+    # show a separate streaming script below the chat. The new bubble just
+    # appears as a complete message in the chat history on the next rerun.
     st.session_state.messages.append({
         "id":        mid,
         "content":   text,
@@ -471,6 +476,8 @@ def _run_one_turn():
 
 def render_ai_vs_ai() -> None:
     inject_css()
+    inject_enter_to_send()
+    inject_logic_map_fullscreen_white()
     _init_state()
 
     st.title("🤝 AI vs AI Debate")

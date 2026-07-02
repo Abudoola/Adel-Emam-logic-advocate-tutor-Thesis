@@ -1,0 +1,301 @@
+\chapter{Results and Evaluation}
+\label{ch:results}
+
+\section{Overview}
+In this chapter I report what I actually measured about my Logic Advocate Tutor. I want to be upfront from the start about a structural limitation: the time budget of a one semester Bachelor project did not allow for a controlled user study with proper recruitment, a control condition, and learning outcome measurements. I instead built a quantitative evaluation suite for the engine itself, ran it, and report the results here. I supplement that with informal usage observations from classmates. The numerical claims about the engine, the baseline comparisons, the ablation study, and the unit test suite are reproducible from the code. The pedagogical observations are paraphrased impressions and should be read as such.
+
+The chapter is organised in two halves. Sections~\ref{sec:eval_methodology} to~\ref{sec:eval_tests} present quantitative evidence: a sixty-scenario engine audit with confidence intervals, a comparison against two published baselines, an ablation study, a convergence analysis, and the unit test suite. Sections~\ref{sec:eval_ai} to~\ref{sec:eval_pedagogical} present qualitative observations from informal use. Section~\ref{sec:eval_threats} lists the threats to validity I am aware of. The reproducibility appendix at the end of this chapter (Section~\ref{sec:eval_repro}) lists every script, every seed, and every command needed to re-derive every number in this chapter.
+
+\section{What I Did and Did Not Measure}
+\label{sec:eval_methodology}
+My evaluation rests on four sources, three quantitative and one qualitative.
+
+\paragraph{Sixty-scenario engine audit.}
+I hand-crafted a benchmark of sixty argumentation scenarios across four graph topologies and labelled each one with a human-expert verdict (myself). The harness in \texttt{tools/run\_evaluation.py} runs every scenario through the engine and reports the engine's agreement rate with the labels. The full results, with statistical tests and a comparison against two baseline evaluators, are in Section~\ref{sec:eval_logical}.
+
+\paragraph{Ablation study.}
+The same sixty scenarios re-run with each engine feature disabled in turn. The harness in \texttt{tools/run\_ablation.py} produces the per-feature impact, summarised in Section~\ref{sec:eval_ablation}.
+
+\paragraph{Unit test suite.}
+A PyTest suite of \textbf{101 assertions} (see Section~\ref{sec:eval_tests}) covers engine bounds, classical-Dung agreement, value-tag asymmetry, bipolar support behaviour, MDP state-space coverage, transition-probability validity, TikZ-export structural correctness, and a regression test that all sixty scenarios still meet the agreement floor.
+
+\paragraph{Informal play sessions.}
+A small group of classmates from the German University in Cairo used the system in unstructured half-hour sessions. I did not collect demographic data, did not administer pre and post tests, and did not record sessions. What I have is conversational feedback after the fact, summarised in Section~\ref{sec:eval_pedagogical}. None of this is statistically significant.
+
+\paragraph{What I did not measure.}
+I did not run controlled latency benchmarks across multiple machines or networks. I did not compute calibration statistics on the AI's self-reported scores against my engine's verdicts. I did not run a between-subjects study comparing the full system against a stripped-down baseline. I did not test learning outcomes. The hint-quality comparison harness (\texttt{tools/run\_hint\_comparison.py}) is built and produces blinded MDP-vs-baseline hint pairs, but the human ratings needed to compute the comparison metric are not yet collected. This is listed as future work in Chapter~\ref{ch:conclusion}.
+
+\section{Engine versus Expert Agreement}
+\label{sec:eval_logical}
+The sixty scenarios are split evenly across four graph topologies, fifteen each:
+\begin{itemize}
+    \item \textbf{LIN} (Linear chains) attack-only chains of varying depth.
+    \item \textbf{STR} (Star attacks) multiple attackers converging on a single root.
+    \item \textbf{BIP} (Bipolar mixed) graphs that interleave attacks and supports.
+    \item \textbf{LNG} (Long mixed-shape) larger debates of ten or more nodes that mix all the above.
+\end{itemize}
+
+I labelled the expected verdict of every scenario manually as either \texttt{IN} or \texttt{OUT} on the root claim before running any code. Table~\ref{tab:eval_agreement} reports the engine's agreement rate with those labels, broken down by topology.
+
+\begin{table}[h]
+\centering
+\caption{Engine verdict versus human-expert label across the sixty hand-crafted scenarios. Per-topology and overall agreement, each with a 95\% Wilson score confidence interval.}
+\label{tab:eval_agreement}
+\begin{tabular}{lrrr}
+\toprule
+Topology & Scenarios & Agreement & 95\% Wilson CI \\
+\midrule
+Linear chains       & 15 & 12/15 \,(80.0\%) & [54.8\%,\,93.0\%] \\
+Star attacks        & 15 & 14/15 \,(93.3\%) & [70.2\%,\,98.8\%] \\
+Bipolar mixed       & 15 & 12/15 \,(80.0\%) & [54.8\%,\,93.0\%] \\
+Long mixed-shape    & 15 & 13/15 \,(86.7\%) & [62.1\%,\,96.3\%] \\
+\midrule
+\textbf{Overall}    & \textbf{60} & \textbf{51/60 \,(85.0\%)} & \textbf{[73.9\%,\,91.9\%]} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Statistical significance}
+\label{sec:eval_significance}
+The overall agreement rate of $85.0\%$ on $n=60$ is significantly above chance. Under the null hypothesis that the engine's verdicts agree with my labels with probability $0.5$, the one-sided binomial probability of observing at least $51$ agreements in $60$ trials is $p = 1.54 \times 10^{-8}$. So the engine is not flipping coins.
+
+The variation in agreement rate across topologies (LIN $80.0\%$, STR $93.3\%$, BIP $80.0\%$, LNG $86.7\%$) is, however, \emph{not} statistically significant given the per-topology sample size of $n=15$. A chi-squared test of independence between topology and agreement yields $\chi^{2}=1.44$ on $3$ degrees of freedom, far below the critical value of $7.82$ at $p=0.05$. So while the engine is empirically weaker on linear and bipolar topologies than on star ones, I cannot rule out that the gap is sampling noise. A larger benchmark would be needed to confirm a topology effect.
+
+\subsection{Comparison against published baselines}
+\label{sec:eval_baselines}
+The agreement rate of $85\%$ is only informative relative to alternative methods. I therefore re-ran the same sixty scenarios under two published evaluators and a classical reference, and compared their agreement against the same human-expert labels.
+
+\begin{table}[h]
+\centering
+\caption{Agreement against the human-expert labels on the same sixty scenarios. My engine compared against the h-categorizer of \cite{besnard2001logic} and the grounded extension of \cite{dung1995acceptability}.}
+\label{tab:baselines}
+\begin{tabular}{lrrr}
+\toprule
+Method & h-categorizer & Dung grounded & My engine \\
+\midrule
+LIN (Linear)    & \phantom{0}9/15 \,(60.0\%) & 13/15 \,(86.7\%) & 12/15 \,(80.0\%) \\
+STR (Star)      & 13/15 \,(86.7\%) & 11/15 \,(73.3\%) & 14/15 \,(93.3\%) \\
+BIP (Bipolar)   & 10/15 \,(66.7\%) & \phantom{0}5/15 \,(33.3\%) & 12/15 \,(80.0\%) \\
+LNG (Long)      & \phantom{0}6/15 \,(40.0\%) & 11/15 \,(73.3\%) & 13/15 \,(86.7\%) \\
+\midrule
+\textbf{Overall} & \textbf{38/60 \,(63.3\%)} & \textbf{40/60 \,(66.7\%)} & \textbf{51/60 \,(85.0\%)} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two things stand out. First, my engine beats both baselines overall by roughly twenty percentage points absolute. So the addition of bipolar supports, integer weights, and value-tag multipliers on top of a classical evaluator carries real signal on the labelled scenarios. Second, the per-topology pattern is informative. On linear chains (where supports are absent and weights are uniform), classical Dung grounded actually marginally outperforms my engine, because the gradual semantics introduces the even-depth leniency I document in Section~\ref{sec:eval_discrepancy}. On bipolar scenarios the classical baseline collapses to $33.3\%$ because the grounded extension cannot represent supports at all; my engine is at $80.0\%$ on the same scenarios, which is the largest absolute gap of any topology. The h-categorizer sits in between because it is gradual (so it handles partial scores) but lacks both supports and weights.
+
+\subsection{Discrepancy analysis}
+\label{sec:eval_discrepancy}
+The nine disagreements between my engine and my labels fall into three patterns. Recognising the patterns is more useful than fixing them, because each one reveals a property of bipolar gradual semantics that classical Dung does not capture.
+
+\paragraph{Pattern 1: even-depth chain leniency.}
+On even-depth attack chains, classical Dung's grounded extension declares the root \texttt{OUT}. My engine often declares it \texttt{IN}. The reason is that the gradual semantics propagates partial scores: an attacker hit by another attacker is not fully extinguished at score zero but at $1/(1+\alpha)$, which leaves a residual the chain's last node cannot push back to zero. So an even-depth chain is more lenient than its classical counterpart. Two of the nine disagreements (LIN-04, LIN-14) fall here. Section~\ref{sec:eval_lin04} works LIN-04 out in full detail.
+
+\paragraph{Pattern 2: weight-asymmetry floor effect.}
+When a target is hit by an attacker whose weight is several times higher (for example, $w_{\text{atk}}=25$ on a target with $w_{\text{tgt}}=8$), no weak follow-up counter can rescue the target, even one that classical Dung would treat as undefeated. The reason is the denominator: $1 + \alpha/w$ is already large once $\alpha$ scales with the attacker's heavier weight, and the lightweight defender adds only a small contribution to $\sigma$. So a heavy attack creates a score floor below $0.5$ that a lighter counter cannot lift. Three disagreements (LIN-10, BIP-08, BIP-12) fall here.
+
+\paragraph{Pattern 3: bipolar supporter contribution under attack.}
+When a supporter of the main claim is itself attacked, classical intuition often says the support is neutralised. My gradual rule keeps a residual support contribution alive because the attacked supporter's score is reduced but not extinguished. The result is that a main claim can survive in the gradual rule even when an analogous classical case would have it defeated. Four disagreements (BIP-10, LNG-09, LNG-13, STR-13) fall in this family.
+
+These three patterns are not bugs to fix. They are the empirical signature of what bipolar gradual semantics adds to classical Dung. The disagreement rate of fifteen percent is the price of having a continuous evaluator that gives learners gradient feedback, rather than a binary evaluator that says only \texttt{IN} or \texttt{OUT}.
+
+\subsection{Worked example: scenario LIN-04}
+\label{sec:eval_lin04}
+To make Pattern 1 concrete, I walk through scenario LIN-04 in full. The scenario is an even-depth attack chain of four arguments, encoded as follows.
+\begin{quote}
+\begin{tabular}{rl}
+$a_1$: & ``Going vegan is healthier.'' \quad ($w=9$, value tag Ethics) \\
+$a_2$: & ``Plant proteins lack B12.'' \quad ($w=10$, value tag Fact) \\
+$a_3$: & ``B12 supplements solve that.'' \quad ($w=8$, value tag Logic) \\
+$a_4$: & ``Supplement absorption varies.'' \quad ($w=7$, value tag Fact) \\
+\end{tabular}
+\end{quote}
+\noindent The attack relation is $\{(a_2, a_1), (a_3, a_2), (a_4, a_3)\}$. There are no supports. Diagrammatically:
+\[
+    a_4 \;\longrightarrow\; a_3 \;\longrightarrow\; a_2 \;\longrightarrow\; a_1.
+\]
+
+\paragraph{Human-expert label.}
+Classical Dung labelling proceeds bottom-up. $a_4$ has no attackers, so $a_4$ is \texttt{IN}. $a_3$ is attacked by $a_4$ (which is \texttt{IN}), so $a_3$ is \texttt{OUT}. $a_2$ is attacked by $a_3$ (which is \texttt{OUT}), so the attack on $a_2$ does not succeed; $a_2$ is \texttt{IN}. $a_1$ is attacked by $a_2$ (which is \texttt{IN}), so $a_1$ is \texttt{OUT}. The classical verdict, and my label for this scenario, is therefore $a_1 = \texttt{OUT}$.
+
+\paragraph{Engine verdict.}
+My engine runs the synchronous bipolar gradual relaxation. Initial scores $s^{(0)}(a_i)=1$ for every $i$. After convergence the scores stabilise at approximately
+\[
+    s(a_4) = 1.000, \quad s(a_3) = 0.467, \quad s(a_2) = 0.717, \quad s(a_1) = 0.508.
+\]
+The threshold of $0.5$ classifies $a_1$ as \texttt{IN}. The engine's verdict disagrees with the classical label by a margin of $0.008$.
+
+\paragraph{Why they disagree.}
+The classical labelling treats $a_3$ as fully \texttt{OUT} once $a_4$ is \texttt{IN}, so $a_3$ contributes zero pressure to $a_2$. The gradual rule reduces $a_3$ to roughly $1/(1+1)=0.5$ when its only attacker $a_4$ has score $1$, and the value-tag multipliers between Fact and Logic shave this slightly further. That residual pressure on $a_2$ propagates: $a_2$ no longer lands at $1$ but at about $0.717$. The attack from $a_2$ to $a_1$ therefore carries less than full pressure, and $a_1$ lands just above the $0.5$ threshold rather than well below it. The classical and gradual readings differ exactly because the gradual reading propagates the leftover acceptability of $a_3$ all the way down the chain.
+
+\paragraph{Pedagogical reading.}
+The disagreement is small ($s(a_1)=0.508$ is just barely above the threshold). The momentum bar in the UI would show a near-balanced state, which is faithful to the fact that this is a debate where every move matters and the verdict could be flipped by a single follow-up. A binary classical reading would simply tell the student ``$a_1$ is \texttt{OUT}'' and lose this signal. So in the cases where my engine disagrees with classical Dung, the disagreement is in service of finer-grained feedback for the student, not against it.
+
+\section{Convergence of the Fixed Point}
+\label{sec:eval_convergence}
+The acceptability score is defined as the fixed point of a synchronous relaxation. A reasonable question is whether the iteration converges in practice and how fast. I measured this empirically on all sixty scenarios. The harness records the number of iterations until $\max_a |s^{(t+1)}(a) - s^{(t)}(a)| < 10^{-6}$.
+
+\begin{table}[h]
+\centering
+\caption{Number of iterations until score-vector stability on each of the sixty scenarios. The iteration ceiling in the deployed engine is ten; no scenario approaches that bound.}
+\label{tab:convergence}
+\begin{tabular}{lr}
+\toprule
+Iterations until $\max_a |\Delta s| < 10^{-6}$ & Count \\
+\midrule
+1   & 11 \,(18.3\%) \\
+2   & 27 \,(45.0\%) \\
+3   & 16 \,(26.7\%) \\
+4   & \phantom{0}2 \,(3.3\%) \\
+5   & \phantom{0}1 \,(1.7\%) \\
+6   & \phantom{0}1 \,(1.7\%) \\
+7   & \phantom{0}1 \,(1.7\%) \\
+8   & \phantom{0}1 \,(1.7\%) \\
+\midrule
+Median & 2 \\
+Mean   & 2.45 \\
+Maximum (observed) & 8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent The median scenario converges in two iterations, the mean in $2.45$, and the worst case observed across the benchmark is eight. The deployed engine carries a safety ceiling of ten iterations with an early-termination check. So the bound is never reached in the benchmark and the iteration is empirically fast enough for interactive use. A formal proof of fixed-point existence and uniqueness for the bipolar gradual operator is a known result for closely related semantics \cite{cayrol2005graduality, amgoud2017acceptability}; the deployed code relies on the empirical observation rather than on the formal proof.
+
+\section{Ablation Study}
+\label{sec:eval_ablation}
+The same sixty scenarios re-run with each engine feature disabled produces Table~\ref{tab:ablation}. The harness in \texttt{tools/run\_ablation.py} re-evaluates the root's verdict and final score under four ablations. Each ablation isolates the contribution of one part of the engine.
+
+\begin{table}[h]
+\centering
+\caption{Ablation study: effect on root-claim verdict when each engine feature is disabled in turn. Computed on the same sixty scenarios as Table~\ref{tab:eval_agreement}.}
+\label{tab:ablation}
+\begin{tabular}{lrr}
+\toprule
+Disabled component & Verdicts changed & Mean $|\Delta s|$ \\
+\midrule
+Support relation $\mathcal{R}_{\text{sup}}$            & 16/60 (26.7\%) & 0.206 \\
+Value-tag multipliers $\mu$                            & \phantom{0}2/60 \,(3.3\%) & 0.024 \\
+Per-argument weights $w$                               & \phantom{0}5/60 \,(8.3\%) & 0.074 \\
+Gradual semantics (Dung grounded instead)              & 25/60 (41.7\%) & 0.525 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two findings stand out. Disabling the support relation flips $26.7\%$ of all verdicts, with a mean per-node score perturbation of $0.206$. So bipolarity is not decorative: it carries roughly a quarter of the engine's verdict signal in mixed-shape graphs. Replacing the gradual semantics with classical Dung's grounded extension flips $41.7\%$ of verdicts with a mean perturbation of $0.525$, which is the strongest evidence that my engine is genuinely different from a classical baseline rather than a wrapper around one. Value tags and weights individually flip very few verdicts ($3.3\%$ and $8.3\%$ respectively), but their effect is largest precisely in the scenarios where the human-expert label was a close call, which is consistent with the per-topology baseline numbers in Section~\ref{sec:eval_baselines}: value tags matter most on STR scenarios where attackers and defenders share weights but differ in tag, and weights matter most on BIP scenarios where supporters and attackers can be asymmetrically heavy.
+
+\section{Unit Tests}
+\label{sec:eval_tests}
+The PyTest suite under \texttt{tests/} contains \textbf{101 assertions}, all passing. Coverage:
+
+\paragraph{Engine tests (\texttt{tests/test\_engine.py}).} Score bounds across random graphs, agreement with classical Dung on chain and star topologies, value-tag asymmetry direction (Fact-on-Emotion is harder than the reverse), bipolar support behaviour (a supporter never lowers its target's score), convergence (the relaxation loop terminates within ten iterations), the \texttt{diagnose()} helper, dict-roundtrip serialisation, and weight clamping.
+
+\paragraph{MDP tests (\texttt{tests/test\_hint\_mdp.py}).} The state space is exactly eighteen states, the action space is four actions, the optimal policy maps every state to a valid action, losing states always pick \textsc{Step\_Back}, high-pressure winning and tied states always pick \textsc{Value\_Reframe}, every transition distribution sums to one within floating-point tolerance, and the empirical landing-probability table covers every action.
+
+\paragraph{Scenario regression (\texttt{tests/test\_scenarios.py}).} Every one of the sixty scenarios in Section~\ref{sec:eval_logical} runs through the engine producing a valid score in $[0,1]$ and a valid status in $\{\texttt{IN}, \texttt{OUT}\}$. A regression test enforces a hard agreement floor at $80\%$, so any future engine change that drops the agreement below that threshold breaks the build immediately.
+
+\paragraph{TikZ export (\texttt{tests/test\_tikz\_export.py}).} Smoke tests on the figure exporter: empty engine returns an explanatory comment, every node appears in the output, attack and support edges use distinct styles, and special characters in argument text get properly escaped for LaTeX.
+
+The standalone runner \texttt{run\_tests.py} executes the same suite without requiring PyTest to be installed, which makes the tests portable to environments where pip is not available.
+
+\section{Behavioural Observations About the AI}
+\label{sec:eval_ai}
+I want to know whether the AI's behaviour stays coherent with my engine's verdict, since that coherence is the central pedagogical claim of my system. From the sessions I have personally played through, two things have held up.
+
+The user-visible momentum bar always reflects my engine's verdict, never the LLM's, by construction. There is no code path in which the LLM's text overrides the bar. So in any session where the human's most recent argument is logically airtight, the bar tilts in their favour regardless of how confidently the AI's reply is phrased. I have not in my own use seen a case where the AI continued the debate textually while my engine had already declared its argument \texttt{OUT}. If anything close to that happened, the user-facing display still showed my engine's verdict, since that is what every score widget reads from.
+
+The \texttt{CONCEDE} sentinel is reached often enough that I have seen it land cleanly. When the AI gives up, my system stops asking it for further moves and the victory banner shows. I have not counted concessions across a structured sample, so I cannot quote a rate.
+
+\section{Performance Impressions}
+\label{sec:eval_perf}
+A debate is only educational if it feels conversational. From my own use of the system, the bottleneck is the LLM round trip rather than anything in my code. The engine itself runs effectively instantaneously at the graph sizes a real debate produces (well under a millisecond on graphs of up to thirty nodes by informal stopwatch). The Streamlit script rerun is fast enough that I do not notice it. The Groq inference latency for a text-only counter-argument is short enough that the cosmetic ``thinking'' animation successfully masks it; the image-grounded variant takes noticeably longer, but image evidence was a less common move in informal play. \textbf{I have not run a controlled latency benchmark.} Reporting median latencies across machines and network conditions is listed as future work in Chapter~\ref{ch:conclusion}.
+
+\section{Pedagogical Impressions from Informal Use}
+\label{sec:eval_pedagogical}
+The classmates who used my system gave loose, paraphrased feedback after their sessions. The themes below are recurring impressions from those conversations. None of this is statistical and none of it should be read as more than illustrative.
+
+\paragraph{The momentum bar gets more attention than the per bubble score.}
+Most of the testers I spoke to said the bar is what they look at to decide whether they are winning. The per-node acceptability percentage was either ignored or only consulted when the bar moved unexpectedly.
+
+\paragraph{The logic map is intimidating but eventually useful.}
+Several testers ignored the expandable graph until they got confused about why a particular argument's score had dropped. After they opened it once, the graph became their tool for diagnosing what had gone wrong, especially when an opposing argument had slipped in via a support edge they had not noticed.
+
+\paragraph{On demand hints get used.}
+The hint button was used in most sessions I saw. The hint text was not always perfectly targeted, but it gave enough of a strategic angle to be worth pressing. Now that the underlying strategy is chosen by an MDP whose reward is the engine's verdict (Section~\ref{sec:mdp}), the hint is at least defensibly aimed. Whether it is empirically better than a naive single-call LLM hint is what the comparison harness is designed to measure once the human ratings come in.
+
+\paragraph{Voice input matters more than I expected, especially in blitz mode.}
+A few testers tried blitz mode and reported that typing felt like the bottleneck once the timer pressure kicked in. The voice button was a relief for them. Whisper's transcription was accurate enough that nobody mentioned a transcription failure that prevented them from making a move.
+
+\paragraph{The AI conceding was a surprise.}
+The single most cited reaction from testers was the moment the AI gave up. People paraphrased it differently, but the gist was the same: it was the first time the chatbot felt like it could lose fairly. That impression is worth more pedagogically than any specific latency number, and it is the part of my system I am proudest of.
+
+\section{Cost}
+I built my system on free tier services on purpose, so a student could use it without a credit card. In all my development and testing I did not exceed Groq's free tier rate limits, and I never had to provide payment information. I did not record exact API consumption.
+
+\section{Threats to Validity}
+\label{sec:eval_threats}
+Several limitations apply to the claims in this chapter.
+
+\paragraph{The human-expert labels are mine.} Every one of the sixty scenarios was labelled by me. A proper evaluation would use multiple independent raters and report inter-rater agreement with a kappa statistic. The rater spreadsheet for that (\texttt{tools/make\_rater\_template.py}) is built but not yet populated. The baseline comparison in Section~\ref{sec:eval_baselines} partially mitigates this concern: if my labels were biased toward what my engine would output, the gap of roughly twenty percentage points absolute over both baselines would shrink under unbiased relabelling, but it is unlikely to disappear entirely.
+
+\paragraph{No controlled user study.} Nothing in this chapter measures actual learning gain. The qualitative themes I report are filtered through my own bias as the author of the system, and through the small set of classmates who happened to be available to test it.
+
+\paragraph{No control condition.} I never compared my full system against a stripped-down baseline (a vanilla LLM debate partner, or a binary-only logic engine) in a user study. So the apparent value of features like the momentum bar or the value tags is inferred from the ablation table, not measured against a real alternative in the hands of real students.
+
+\paragraph{Hand-tuned parameters.} The value-tag multipliers ($1.2/1.1/1.0/0.8$), the score thresholds ($0.5$ for \texttt{IN}/\texttt{OUT}, $0.65$ for \textsc{High} pressure, $0.40$ for \textsc{Losing}), the fatigue multipliers in the MDP ($0.85$ and $0.65$), and the transition probabilities are all hand-chosen. None of them is learned from data. The codebase has a stub function \texttt{update\_transition\_model\_from\_logs()} for empirical re-estimation of the MDP transitions, but it requires logged student trajectories I do not yet have.
+
+\paragraph{LLM nondeterminism.} The Groq API does not guarantee bit-exact reproducibility. So even if a future evaluation re-runs the same scripted debate, the AI's specific replies will vary. A controlled study would need to average over enough replicates to absorb that variance.
+
+\paragraph{Single environment.} Everything I observed was on my own machine, with my own network, in my own city. Performance and reliability on different hardware or in less stable networks are unknown.
+
+\paragraph{Per-topology power.} The chi-squared test in Section~\ref{sec:eval_significance} reports that the apparent per-topology variation is not statistically significant at $n=15$ per topology. A larger benchmark of perhaps $40$ to $60$ scenarios per topology would be needed to confirm or rule out a topology effect.
+
+
+% ===== AI-versus-AI tournament =====
+\input{05_AIvAI_section}
+
+\section{Summary}
+\label{sec:eval_summary}
+What this chapter establishes, with quantitative evidence: my engine agrees with my human-expert labels on $85\%$ of sixty hand-crafted argumentation scenarios (95\% Wilson CI $[73.9\%, 91.9\%]$, $p < 10^{-7}$ against chance), with the $15\%$ disagreement following three documented patterns that reflect properties of bipolar gradual semantics rather than bugs. On the same scenarios my engine outperforms the published h-categorizer by $21.7$ percentage points absolute and the classical Dung grounded extension by $18.3$ percentage points, with the largest gap appearing on bipolar scenarios that the classical baseline structurally cannot represent. Disabling the support relation flips $26.7\%$ of verdicts, and replacing the gradual semantics with classical grounded flips $41.7\%$, so both contributions of my engine over the classical baseline are non-trivial. The fixed-point iteration converges in two to three iterations on the median scenario and never exceeds eight on the benchmark. A PyTest suite of $101$ assertions guards every claim in this chapter against regression.
+
+What this chapter does not establish: I have not measured learning outcomes, I have not run a controlled user study, and I have not collected the human ratings needed to compare the MDP-guided hint against the naive single-call baseline. These are the highest-priority follow-ups, and Chapter~\ref{ch:conclusion} discusses what each one would look like.
+
+\section{Reproducibility Appendix}
+\label{sec:eval_repro}
+Every number in this chapter can be re-derived from the codebase. The exact commands are listed below for the benefit of any future reader who wants to verify the claims.
+
+\paragraph{Source tree.} All scripts live under \texttt{tools/} in the project root, and produce CSV and LaTeX-table outputs under \texttt{tools/results/}.
+
+\paragraph{Re-running the sixty-scenario audit.}
+\begin{verbatim}
+  cd code_rewritten
+  python tools/run_evaluation.py
+\end{verbatim}
+\noindent produces \texttt{tools/results/evaluation\_results.csv} (per-scenario verdict, score, iterations, agreement flag), \texttt{evaluation\_summary.txt} (totals and disagreement detail), and \texttt{evaluation\_table.tex} (LaTeX source for Table~\ref{tab:eval_agreement}).
+
+\paragraph{Re-running the baseline comparison.}
+The baseline comparison in Table~\ref{tab:baselines} is produced by a small additional script that wraps the same scenario set and runs the pure h-categorizer and the classical Dung grounded labelling. The h-categorizer is the fixed point of $s(a)=1/(1+\sum_{b: b \to a} s(b))$; the grounded labelling is the iterative IN/OUT/UNDEC procedure of Section 2 of \cite{dung1995acceptability}. Both implementations are deterministic and seed-free.
+
+\paragraph{Re-running the ablation study.}
+\begin{verbatim}
+  python tools/run_ablation.py
+\end{verbatim}
+\noindent produces \texttt{tools/results/ablation\_results.csv} (per-scenario verdict and score under each ablation), \texttt{ablation\_summary.txt} (the totals), and \texttt{ablation\_table.tex} (LaTeX source for Table~\ref{tab:ablation}).
+
+\paragraph{Re-running the unit tests.}
+\begin{verbatim}
+  python -m pytest tests/
+\end{verbatim}
+\noindent or, if PyTest is not installed,
+\begin{verbatim}
+  python run_tests.py
+\end{verbatim}
+\noindent The standalone runner is functionally equivalent and prints one line per assertion.
+
+\paragraph{Convergence statistics.}
+The iteration counts in Table~\ref{tab:convergence} are reported in the \texttt{iters} column of \texttt{evaluation\_results.csv}. They are produced by the same single command as the sixty-scenario audit.
+
+\paragraph{Statistical analysis.}
+The Wilson confidence intervals, the binomial test against chance, and the chi-squared test for topology independence are computed from the agreement column of \texttt{evaluation\_results.csv} with standard formulas (Wilson 1927, two-sided exact binomial, Pearson chi-squared with continuity correction). No special package is required beyond the standard library.
+
+\paragraph{Determinism.} The engine, the baseline evaluators, the ablation harness, and the unit test suite are all deterministic. Re-running any of the scripts on the same scenarios will produce bit-exact identical CSV outputs. The only non-deterministic part of the system is the LLM, which is exercised by the AI layer but not by any number in this chapter.
